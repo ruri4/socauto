@@ -6,8 +6,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from socauto import __version__
+from socauto.api.routes.accounts import router as accounts_router
 from socauto.api.routes.health import router as health_router
 from socauto.config import Settings, get_settings
+from socauto.db.engine import create_db_engine
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -15,9 +17,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app_settings = settings or get_settings()
 
     @asynccontextmanager
-    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         app_settings.prepare_runtime()
-        yield
+        engine = create_db_engine(app_settings)
+        application.state.engine = engine
+        try:
+            yield
+        finally:
+            engine.dispose()
 
     application = FastAPI(
         title="socauto",
@@ -27,6 +34,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     application.state.settings = app_settings
     application.include_router(health_router)
+    application.include_router(accounts_router)
     return application
 
 

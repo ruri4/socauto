@@ -43,6 +43,10 @@ uv run uvicorn socauto.app:app --reload
 The OpenAPI document is available at `/openapi.json`, and interactive API documentation is at
 `/docs`. Runtime state is stored under `SOCAUTO_DATA_DIR` and is ignored by Git.
 
+To connect TikTok, call `POST /v1/accounts/tiktok/auth` from the same host as the API. The request
+opens a visible Chromium window and completes after login cookies are captured or the configured
+timeout expires. Session JSON is stored with mode `0600` beneath the private data directory.
+
 ## Development
 
 ```bash

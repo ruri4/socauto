@@ -2,8 +2,9 @@
 
 from collections.abc import Iterator
 from functools import lru_cache
-from typing import Any
+from typing import Any, cast
 
+from fastapi import Request
 from sqlalchemy import URL, Engine, event
 from sqlmodel import Session, create_engine
 
@@ -44,4 +45,11 @@ def get_engine() -> Engine:
 
 def get_session() -> Iterator[Session]:
     with Session(get_engine()) as session:
+        yield session
+
+
+def get_request_session(request: Request) -> Iterator[Session]:
+    """Yield a session from the engine owned by the current application."""
+    engine = cast(Engine, request.app.state.engine)
+    with Session(engine) as session:
         yield session

@@ -3,6 +3,7 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,6 +19,13 @@ class Settings(BaseSettings):
 
     data_dir: Path = Path("data")
     log_level: str = "INFO"
+    tiktok_auth_timeout_seconds: int = Field(default=300, ge=30, le=1800)
+    tiktok_chromium_binary: Path | None = None
+    tiktok_login_url: str = "https://www.tiktok.com/login"
+    tiktok_user_agent: str = (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    )
 
     @property
     def jobs_dir(self) -> Path:
