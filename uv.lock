@@ -620,6 +620,7 @@ dev = [
     { name = "pytest-cov" },
     { name = "ruff" },
     { name = "types-requests" },
+    { name = "types-yt-dlp" },
 ]
 
 [package.metadata]
@@ -642,6 +643,7 @@ dev = [
     { name = "pytest-cov", specifier = ">=6.2,<7" },
     { name = "ruff", specifier = ">=0.12,<1" },
     { name = "types-requests", specifier = ">=2.32,<3" },
+    { name = "types-yt-dlp", specifier = ">=2025.8.22" },
 ]
 
 [[package]]
@@ -741,6 +743,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/db/51/703318f7b7be8bee126ec13bf615050f932d0179b8784420f3a0199cc769/types_requests-2.33.0.20260712.tar.gz", hash = "sha256:2141b67ab534a5c5cd2dac5034f2a35f42e699c5bf185eee608c5246a069d7fb", size = 25084, upload-time = "2026-07-12T05:14:20.455Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/62/e7/010c87f559e216d83f9dc51e939633fd0d0ead3377340181ab0e223cd3b5/types_requests-2.33.0.20260712-py3-none-any.whl", hash = "sha256:de027e28c171d3da529689cbfa023b0b4eab188c8dfa22fd834eebd2cee6e7bb", size = 21392, upload-time = "2026-07-12T05:14:19.616Z" },
+]
+
+[[package]]
+name = "types-yt-dlp"
+version = "2026.8.19.20260827"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ff/8b/8e11d5a47ec50681dc7f96e3809c085a33308ace707c02e95d8fd5b9aec7/types_yt_dlp-2026.8.19.20260827.tar.gz", hash = "sha256:1121cac4a355d5fcfe1e645a54fa0b9f5141f384184821c2c7ebddd672c88a6c", size = 42184, upload-time = "2026-08-27T12:06:08.686Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/de/6b/0a4ed015cdde11e12ace4f0a72a5e8e7431b99357a26ada1cad5b886cdeb/types_yt_dlp-2026.8.19.20260827-py3-none-any.whl", hash = "sha256:c98ef2ad4488c2d5298d819cb1c2e42043126d1f3d2cbd684baa36d45bed245a", size = 55300, upload-time = "2026-08-27T12:06:07.712Z" },
 ]
 
 [[package]]

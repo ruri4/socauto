@@ -47,6 +47,10 @@ To connect TikTok, call `POST /v1/accounts/tiktok/auth` from the same host as th
 opens a visible Chromium window and completes after login cookies are captured or the configured
 timeout expires. Session JSON is stored with mode `0600` beneath the private data directory.
 
+Public X posts need no source credentials. For restricted posts, set `SOCAUTO_X_COOKIE_FILE` to a
+Netscape-format cookie file readable by the worker. Downloads are written beneath the private jobs
+directory as H.264/AAC MP4 files; posts containing more than one video are rejected in the MVP.
+
 ## Development
 
 ```bash

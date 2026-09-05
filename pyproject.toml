@@ -27,6 +27,7 @@ dev = [
   "pytest-cov>=6.2,<7",
   "ruff>=0.12,<1",
   "types-requests>=2.32,<3",
+  "types-yt-dlp>=2025.8.22",
 ]
 
 [tool.hatch.build.targets.wheel]
