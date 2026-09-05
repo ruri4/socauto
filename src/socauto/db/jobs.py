@@ -1,0 +1,224 @@
+"""Transactional durable-job operations."""
+
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from typing import Any, cast
+from uuid import UUID
+
+from sqlalchemy import update
+from sqlalchemy.engine import CursorResult
+from sqlalchemy.exc import IntegrityError
+from sqlmodel import Session, col, select
+
+from socauto.db.models import Job, JobState, Media
+from socauto.db.types import utc_now
+from socauto.sources.x import canonicalize_x_url
+
+ACTIVE_STATES = frozenset({JobState.DOWNLOADING, JobState.UPLOADING})
+TERMINAL_STATES = frozenset({JobState.POSTED, JobState.FAILED, JobState.CANCELLED})
+
+_TRANSITIONS: dict[JobState, frozenset[JobState]] = {
+    JobState.PENDING: frozenset({JobState.DOWNLOADING, JobState.CANCELLED}),
+    JobState.DOWNLOADING: frozenset({JobState.DOWNLOADED, JobState.FAILED, JobState.CANCELLED}),
+    JobState.DOWNLOADED: frozenset({JobState.UPLOADING, JobState.FAILED, JobState.CANCELLED}),
+    JobState.UPLOADING: frozenset({JobState.POSTED, JobState.FAILED}),
+    JobState.POSTED: frozenset(),
+    JobState.FAILED: frozenset({JobState.PENDING, JobState.DOWNLOADED, JobState.CANCELLED}),
+    JobState.CANCELLED: frozenset(),
+}
+
+
+class DuplicateJobError(Exception):
+    def __init__(self, existing_job_id: UUID) -> None:
+        super().__init__(f"a job already exists for this destination: {existing_job_id}")
+        self.existing_job_id = existing_job_id
+
+
+class InvalidJobTransitionError(ValueError):
+    def __init__(self, current: JobState, target: JobState) -> None:
+        super().__init__(f"cannot transition job from {current.value} to {target.value}")
+        self.current = current
+        self.target = target
+
+
+@dataclass(frozen=True)
+class RecoveryResult:
+    reset_downloads: int = 0
+    failed_uploads: int = 0
+
+
+def create_job(
+    session: Session,
+    *,
+    source_url: str,
+    destination_account_id: UUID,
+    caption_override: str | None = None,
+) -> Job:
+    job = Job(
+        source_url=source_url,
+        canonical_url=canonicalize_x_url(source_url),
+        destination_account_id=destination_account_id,
+        caption_override=caption_override,
+    )
+    session.add(job)
+
+    try:
+        session.commit()
+    except IntegrityError as error:
+        session.rollback()
+        existing = session.exec(
+            select(Job).where(
+                Job.destination_account_id == destination_account_id,
+                Job.canonical_url == job.canonical_url,
+            )
+        ).one_or_none()
+        if existing is not None:
+            raise DuplicateJobError(existing.id) from error
+        raise
+
+    session.refresh(job)
+    return job
+
+
+def claim_next_job(
+    session: Session,
+    *,
+    worker_id: str,
+    lease_for: timedelta = timedelta(minutes=5),
+    now: datetime | None = None,
+) -> Job | None:
+    claimed_at = now or utc_now()
+
+    for _ in range(5):
+        candidate = session.exec(
+            select(Job)
+            .where(
+                col(Job.state).in_([JobState.PENDING, JobState.DOWNLOADED]),
+                col(Job.cancel_requested_at).is_(None),
+            )
+            .order_by(col(Job.created_at), col(Job.id))
+            .limit(1)
+        ).first()
+        if candidate is None:
+            return None
+
+        target = JobState.DOWNLOADING if candidate.state is JobState.PENDING else JobState.UPLOADING
+        values: dict[str, object] = {
+            "state": target,
+            "worker_id": worker_id,
+            "claimed_at": claimed_at,
+            "lease_expires_at": claimed_at + lease_for,
+            "updated_at": claimed_at,
+        }
+        if candidate.state is JobState.PENDING:
+            values["attempt_count"] = candidate.attempt_count + 1
+
+        result = cast(
+            CursorResult[Any],
+            session.execute(
+                update(Job)
+                .where(col(Job.id) == candidate.id, col(Job.state) == candidate.state)
+                .values(**values)
+            ),
+        )
+        if result.rowcount == 1:
+            session.commit()
+            claimed = session.get(Job, candidate.id)
+            if claimed is None:
+                raise RuntimeError("claimed job disappeared")
+            return claimed
+        session.rollback()
+
+    return None
+
+
+def transition_job(
+    session: Session,
+    job: Job,
+    target: JobState,
+    *,
+    error_code: str | None = None,
+    error_message: str | None = None,
+    posted_url: str | None = None,
+    now: datetime | None = None,
+) -> Job:
+    if target not in _TRANSITIONS[job.state]:
+        raise InvalidJobTransitionError(job.state, target)
+    if target is JobState.POSTED and posted_url is None:
+        raise ValueError("posted jobs require a posted URL")
+    if target is JobState.FAILED and error_code is None:
+        raise ValueError("failed jobs require an error code")
+
+    changed_at = now or utc_now()
+    job.state = target
+    job.updated_at = changed_at
+
+    if target not in ACTIVE_STATES:
+        job.worker_id = None
+        job.claimed_at = None
+        job.lease_expires_at = None
+    if target in TERMINAL_STATES:
+        job.finished_at = changed_at
+    if target is JobState.FAILED:
+        job.error_code = error_code
+        job.error_message = error_message
+    if target is JobState.POSTED:
+        job.posted_url = posted_url
+
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    return job
+
+
+def retry_failed_job(session: Session, job: Job, *, now: datetime | None = None) -> Job:
+    if job.state is not JobState.FAILED:
+        raise InvalidJobTransitionError(job.state, JobState.PENDING)
+
+    has_media = session.exec(select(Media.id).where(Media.job_id == job.id)).first() is not None
+    target = JobState.DOWNLOADED if has_media else JobState.PENDING
+    changed_at = now or utc_now()
+    job.state = target
+    job.error_code = None
+    job.error_message = None
+    job.finished_at = None
+    job.cancel_requested_at = None
+    job.updated_at = changed_at
+    if has_media:
+        job.attempt_count += 1
+
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    return job
+
+
+def recover_stale_jobs(session: Session, *, now: datetime | None = None) -> RecoveryResult:
+    recovered_at = now or utc_now()
+    stale_jobs = session.exec(
+        select(Job).where(
+            col(Job.state).in_(ACTIVE_STATES),
+            (col(Job.lease_expires_at).is_(None)) | (col(Job.lease_expires_at) <= recovered_at),
+        )
+    ).all()
+    reset_downloads = 0
+    failed_uploads = 0
+
+    for job in stale_jobs:
+        job.worker_id = None
+        job.claimed_at = None
+        job.lease_expires_at = None
+        job.updated_at = recovered_at
+        if job.state is JobState.DOWNLOADING:
+            job.state = JobState.PENDING
+            reset_downloads += 1
+        else:
+            job.state = JobState.FAILED
+            job.error_code = "upload_outcome_unknown"
+            job.error_message = "worker lease expired while uploading; retry manually"
+            job.finished_at = recovered_at
+            failed_uploads += 1
+        session.add(job)
+
+    session.commit()
+    return RecoveryResult(reset_downloads=reset_downloads, failed_uploads=failed_uploads)

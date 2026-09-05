@@ -31,6 +31,7 @@ There is no frontend or official-platform API dependency.
 uv sync
 bun install
 cp .env.example .env
+uv run alembic upgrade head
 ```
 
 Run the development API:

@@ -24,6 +24,10 @@ class Settings(BaseSettings):
         return self.data_dir / "jobs"
 
     @property
+    def database_path(self) -> Path:
+        return self.data_dir / "socauto.db"
+
+    @property
     def sessions_dir(self) -> Path:
         return self.data_dir / "sessions"
 
