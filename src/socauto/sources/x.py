@@ -166,9 +166,10 @@ class XSourceAdapter:
         *,
         job_id: UUID,
         caption_override: str | None = None,
+        attempt_id: UUID | None = None,
     ) -> XDownloadedMedia:
         metadata = self.inspect(source_url)
-        job_dir = self._prepare_job_dir(job_id)
+        job_dir = self._prepare_job_dir(job_id, attempt_id)
         options = self._base_options()
         options.update(
             {
@@ -221,6 +222,10 @@ class XSourceAdapter:
             "logger": _QuietLogger(),
             "no_warnings": True,
             "quiet": True,
+            "socket_timeout": 30,
+            "retries": 3,
+            "fragment_retries": 3,
+            "extractor_retries": 3,
         }
         cookie_file = self._settings.x_cookie_file
         if cookie_file is not None:
@@ -230,12 +235,17 @@ class XSourceAdapter:
             options["cookiefile"] = str(resolved)
         return options
 
-    def _prepare_job_dir(self, job_id: UUID) -> Path:
+    def _prepare_job_dir(self, job_id: UUID, attempt_id: UUID | None) -> Path:
         try:
             self._settings.prepare_runtime()
             jobs_dir = self._settings.jobs_dir.resolve()
-            job_dir = (jobs_dir / str(job_id)).resolve()
-            job_dir.relative_to(jobs_dir)
+            job_dir = jobs_dir / str(job_id)
+            if attempt_id is not None:
+                job_dir /= str(attempt_id)
+            if job_dir.resolve() != job_dir:
+                raise ValueError("symlinked media directory")
+            job_dir.parent.mkdir(mode=0o700, exist_ok=True)
+            job_dir.parent.chmod(0o700)
             job_dir.mkdir(mode=0o700, exist_ok=True)
             job_dir.chmod(0o700)
         except (OSError, ValueError):

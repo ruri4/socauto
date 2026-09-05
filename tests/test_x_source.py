@@ -108,9 +108,16 @@ def test_inspect_extracts_single_video_metadata(tmp_path: Path) -> None:
     assert factory.options[0]["quiet"] is True
 
 
-def test_download_uses_private_controlled_mp4_and_override(tmp_path: Path) -> None:
+@pytest.mark.parametrize("attempt_id", [None, UUID("ef4d80cb-71d3-4aa8-8d87-83ed93dbd785")])
+def test_download_uses_private_controlled_mp4_and_override(
+    tmp_path: Path,
+    attempt_id: UUID | None,
+) -> None:
     job_id = UUID("54a035f4-af85-4fba-a043-a58792135f67")
-    output = tmp_path / "data" / "jobs" / str(job_id) / "video.mp4"
+    directory = tmp_path / "data" / "jobs" / str(job_id)
+    if attempt_id is not None:
+        directory /= str(attempt_id)
+    output = directory / "video.mp4"
     output.parent.mkdir(parents=True)
     content = b"downloaded video"
     output.write_bytes(content)
@@ -122,6 +129,7 @@ def test_download_uses_private_controlled_mp4_and_override(tmp_path: Path) -> No
         "https://x.com/user/status/123",
         job_id=job_id,
         caption_override="  custom caption  ",
+        attempt_id=attempt_id,
     )
 
     assert result.path == output
@@ -130,10 +138,13 @@ def test_download_uses_private_controlled_mp4_and_override(tmp_path: Path) -> No
     assert result.size_bytes == len(content)
     assert result.checksum_sha256 == sha256(content).hexdigest()
     assert output.parent.stat().st_mode & 0o777 == 0o700
+    assert output.parent.parent.stat().st_mode & 0o777 == 0o700
     assert output.stat().st_mode & 0o777 == 0o600
     download_options = factory.options[1]
     assert download_options["merge_output_format"] == "mp4"
     assert download_options["playlist_items"] == "1"
+    assert download_options["retries"] == 3
+    assert download_options["socket_timeout"] == 30
     assert download_options["outtmpl"] == {"default": str(output.parent / "video.%(ext)s")}
     selected_format = download_options["format"]
     assert isinstance(selected_format, str)

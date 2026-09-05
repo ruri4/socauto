@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import Engine, inspect
-from sqlmodel import Session, SQLModel
+from sqlalchemy import Engine, inspect, text
+from sqlmodel import Session, SQLModel, select
 
 from socauto.config import Settings, get_settings
 from socauto.db.engine import create_db_engine
@@ -18,7 +18,7 @@ from socauto.db.jobs import (
     retry_failed_job,
     transition_job,
 )
-from socauto.db.models import Account, JobState, Media
+from socauto.db.models import Account, Job, JobState, Media
 from socauto.db.types import utc_now
 
 
@@ -179,3 +179,43 @@ def test_failed_job_retries_from_existing_media(engine: Engine) -> None:
 
         assert retried.state is JobState.DOWNLOADED
         assert retried.error_code is None
+
+
+def test_worker_migration_preserves_existing_jobs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SOCAUTO_DATA_DIR", str(tmp_path / "migrated"))
+    get_settings.cache_clear()
+    database = create_db_engine(get_settings())
+    config = Config("alembic.ini")
+    try:
+        command.upgrade(config, "0001_initial")
+        with database.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO accounts (id, platform, session_file, created_at, updated_at) "
+                    "VALUES (:id, 'tiktok', 'sessions/old.json', "
+                    "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+                ),
+                {"id": "a" * 32},
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO jobs (id, source_url, canonical_url, source_platform, "
+                    "destination_platform, destination_account_id, created_at, updated_at) "
+                    "VALUES (:id, 'https://x.com/u/status/1', 'https://x.com/i/status/1', "
+                    "'x', 'tiktok', :account, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+                ),
+                {"id": "b" * 32, "account": "a" * 32},
+            )
+        command.upgrade(config, "head")
+        with Session(database) as session:
+            job = session.exec(select(Job)).one()
+            assert job.state is JobState.PENDING and job.resolved_caption is None
+        command.downgrade(config, "0001_initial")
+        command.upgrade(config, "head")
+        command.check(config)
+    finally:
+        database.dispose()
+        get_settings.cache_clear()

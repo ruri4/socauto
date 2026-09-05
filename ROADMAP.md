@@ -1,8 +1,8 @@
 # Roadmap
 
 socauto is being built as an API-first X/Twitter-to-TikTok automation backend. The MVP is
-currently **5 of 8 phases complete**. Persistence, TikTok account login, X downloads, and the
-publishing adapter are implemented. The worker pipeline is not connected and live publishing
+currently **6 of 8 phases complete**. Persistence, TikTok account login, X downloads, publishing,
+and the standalone worker pipeline are implemented. Job HTTP endpoints are next; live publishing
 has not been verified.
 
 ## Current capabilities
@@ -17,6 +17,7 @@ has not been verified.
 - Typed X metadata extraction and private H.264/AAC MP4 downloads through `yt-dlp` and FFmpeg
 - Python tooling through `uv`; browser-side signing tooling through Bun and Playwright Core
 - HTTP TikTok upload adapter with isolated credentials and an offline-tested Bun signer
+- Standalone lease-renewing worker with fenced updates, cancellation, and retained-media cleanup
 
 ## Phases
 
@@ -77,16 +78,18 @@ Commit: `884ccd6 add X media source adapter`
 Live private upload verification remains in phase 8. Publish acknowledgements do not guarantee
 public visibility, and successful responses may not provide a post URL.
 
-### 6. Worker and pipeline - next
+### 6. Worker and pipeline - complete
 
-- [ ] Add a standalone worker process with durable job claiming and lease renewal
-- [ ] Run `pending -> downloading -> downloaded -> uploading -> posted | failed`
-- [ ] Honor cancellation before irreversible publication
-- [ ] Record typed, safe failure codes and posted URLs
-- [ ] Delete media only after confirmed success; retain failed media for retry
-- [ ] Recover interrupted downloads and mark uncertain interrupted uploads for manual review
+- [x] Add a standalone worker process with durable job claiming and lease renewal
+- [x] Run `pending -> downloading -> downloaded -> uploading -> posted | failed`
+- [x] Honor cancellation before an upload claim; drain active stages on graceful shutdown
+- [x] Record safe failure codes and acknowledgement IDs, with nullable posted URLs
+- [x] Delete media only after durable acknowledgement; retain failed media for retry
+- [x] Recover interrupted downloads and mark uncertain interrupted uploads for manual review
+- [x] Fence stale workers, isolate attempt directories, and verify retained media before upload
+- [x] Verify concurrent claims, heartbeat lifecycle, crash recovery, cleanup, and real process shutdown
 
-### 7. Job API
+### 7. Job API - next
 
 - [ ] `POST /v1/jobs` returning `202 Accepted`
 - [ ] Paginated `GET /v1/jobs`

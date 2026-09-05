@@ -100,6 +100,7 @@ def claim_next_job(
             .limit(1)
         ).first()
         if candidate is None:
+            session.rollback()
             return None
 
         target = JobState.DOWNLOADING if candidate.state is JobState.PENDING else JobState.UPLOADING
@@ -111,13 +112,17 @@ def claim_next_job(
             "updated_at": claimed_at,
         }
         if candidate.state is JobState.PENDING:
-            values["attempt_count"] = candidate.attempt_count + 1
+            values["attempt_count"] = col(Job.attempt_count) + 1
 
         result = cast(
             CursorResult[Any],
             session.execute(
                 update(Job)
-                .where(col(Job.id) == candidate.id, col(Job.state) == candidate.state)
+                .where(
+                    col(Job.id) == candidate.id,
+                    col(Job.state) == candidate.state,
+                    col(Job.cancel_requested_at).is_(None),
+                )
                 .values(**values)
             ),
         )
@@ -144,28 +149,34 @@ def transition_job(
 ) -> Job:
     if target not in _TRANSITIONS[job.state]:
         raise InvalidJobTransitionError(job.state, target)
-    if target is JobState.POSTED and posted_url is None:
-        raise ValueError("posted jobs require a posted URL")
+    if target is JobState.POSTED and posted_url is None and job.creation_id is None:
+        raise ValueError("posted jobs require an acknowledgement or posted URL")
     if target is JobState.FAILED and error_code is None:
         raise ValueError("failed jobs require an error code")
 
     changed_at = now or utc_now()
-    job.state = target
-    job.updated_at = changed_at
+    statement = update(Job).where(col(Job.id) == job.id, col(Job.state) == job.state)
+    if job.state in ACTIVE_STATES:
+        statement = statement.where(
+            col(Job.worker_id) == job.worker_id,
+            col(Job.claimed_at) == job.claimed_at,
+            col(Job.lease_expires_at) > changed_at,
+        )
+    values: dict[str, object] = {"state": target, "updated_at": changed_at}
 
     if target not in ACTIVE_STATES:
-        job.worker_id = None
-        job.claimed_at = None
-        job.lease_expires_at = None
+        values.update(worker_id=None, claimed_at=None, lease_expires_at=None)
     if target in TERMINAL_STATES:
-        job.finished_at = changed_at
+        values["finished_at"] = changed_at
     if target is JobState.FAILED:
-        job.error_code = error_code
-        job.error_message = error_message
+        values.update(error_code=error_code, error_message=error_message)
     if target is JobState.POSTED:
-        job.posted_url = posted_url
+        values["posted_url"] = posted_url
 
-    session.add(job)
+    result = cast(CursorResult[Any], session.execute(statement.values(**values)))
+    if result.rowcount != 1:
+        session.rollback()
+        raise RuntimeError("job changed or worker lease expired")
     session.commit()
     session.refresh(job)
     return job
@@ -178,16 +189,25 @@ def retry_failed_job(session: Session, job: Job, *, now: datetime | None = None)
     has_media = session.exec(select(Media.id).where(Media.job_id == job.id)).first() is not None
     target = JobState.DOWNLOADED if has_media else JobState.PENDING
     changed_at = now or utc_now()
-    job.state = target
-    job.error_code = None
-    job.error_message = None
-    job.finished_at = None
-    job.cancel_requested_at = None
-    job.updated_at = changed_at
-    if has_media:
-        job.attempt_count += 1
-
-    session.add(job)
+    result = cast(
+        CursorResult[Any],
+        session.execute(
+            update(Job)
+            .where(col(Job.id) == job.id, col(Job.state) == JobState.FAILED)
+            .values(
+                state=target,
+                error_code=None,
+                error_message=None,
+                finished_at=None,
+                cancel_requested_at=None,
+                updated_at=changed_at,
+                attempt_count=col(Job.attempt_count) + int(has_media),
+            )
+        ),
+    )
+    if result.rowcount != 1:
+        session.rollback()
+        raise RuntimeError("job changed before retry")
     session.commit()
     session.refresh(job)
     return job
@@ -195,30 +215,42 @@ def retry_failed_job(session: Session, job: Job, *, now: datetime | None = None)
 
 def recover_stale_jobs(session: Session, *, now: datetime | None = None) -> RecoveryResult:
     recovered_at = now or utc_now()
-    stale_jobs = session.exec(
-        select(Job).where(
-            col(Job.state).in_(ACTIVE_STATES),
-            (col(Job.lease_expires_at).is_(None)) | (col(Job.lease_expires_at) <= recovered_at),
+    counts: list[int] = []
+    for state in (JobState.DOWNLOADING, JobState.UPLOADING):
+        values: dict[str, object] = {
+            "worker_id": None,
+            "claimed_at": None,
+            "lease_expires_at": None,
+            "updated_at": recovered_at,
+            "state": JobState.PENDING if state is JobState.DOWNLOADING else JobState.FAILED,
+        }
+        if state is JobState.UPLOADING:
+            values.update(
+                error_code="upload_outcome_unknown",
+                error_message="worker lease expired while uploading; retry manually",
+                finished_at=recovered_at,
+            )
+        result = cast(
+            CursorResult[Any],
+            session.execute(
+                update(Job)
+                .where(
+                    col(Job.state) == state,
+                    col(Job.lease_expires_at).is_(None)
+                    | (col(Job.lease_expires_at) <= recovered_at),
+                )
+                .values(**values)
+            ),
         )
-    ).all()
-    reset_downloads = 0
-    failed_uploads = 0
-
-    for job in stale_jobs:
-        job.worker_id = None
-        job.claimed_at = None
-        job.lease_expires_at = None
-        job.updated_at = recovered_at
-        if job.state is JobState.DOWNLOADING:
-            job.state = JobState.PENDING
-            reset_downloads += 1
-        else:
-            job.state = JobState.FAILED
-            job.error_code = "upload_outcome_unknown"
-            job.error_message = "worker lease expired while uploading; retry manually"
-            job.finished_at = recovered_at
-            failed_uploads += 1
-        session.add(job)
-
+        counts.append(result.rowcount)
+    # A cancelled download must not become an unclaimable pending job on restart.
+    session.execute(
+        update(Job)
+        .where(
+            col(Job.state).in_([JobState.PENDING, JobState.DOWNLOADED]),
+            col(Job.cancel_requested_at).is_not(None),
+        )
+        .values(state=JobState.CANCELLED, finished_at=recovered_at, updated_at=recovered_at)
+    )
     session.commit()
-    return RecoveryResult(reset_downloads=reset_downloads, failed_uploads=failed_uploads)
+    return RecoveryResult(reset_downloads=counts[0], failed_uploads=counts[1])

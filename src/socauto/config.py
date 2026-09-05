@@ -19,6 +19,8 @@ class Settings(BaseSettings):
 
     data_dir: Path = Path("data")
     log_level: str = "INFO"
+    worker_poll_seconds: float = Field(default=2, ge=0.1, le=60)
+    worker_lease_seconds: int = Field(default=300, ge=30, le=3600)
     x_cookie_file: Path | None = None
     tiktok_auth_timeout_seconds: int = Field(default=300, ge=30, le=1800)
     tiktok_chromium_binary: Path | None = None

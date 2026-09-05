@@ -159,6 +159,20 @@ def test_full_upload_prepared_requests_and_lifecycle(tmp_path: Path) -> None:
     assert media.exists()  # Worker, not uploader, owns cleanup.
 
 
+def test_guard_aborts_before_irreversible_publish(tmp_path: Path) -> None:
+    upstream = Upstream()
+    target, _, media = destination(tmp_path, upstream)
+
+    def lost_claim() -> None:
+        raise RuntimeError("lost claim")
+
+    with pytest.raises(RuntimeError, match="lost claim"):
+        target.publish(media, "caption", before_publish=lost_claim)
+    assert len(upstream.calls) == 8 and upstream.closed == 2
+    assert not any("/project/post/" in str(call.url) for call in upstream.calls)
+    assert media.is_file()
+
+
 @pytest.mark.parametrize(
     ("step", "status", "payload", "code"),
     [

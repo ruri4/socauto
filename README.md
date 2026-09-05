@@ -53,7 +53,7 @@ directory as H.264/AAC MP4 files; posts containing more than one video are rejec
 
 ## TikTok adapter
 
-`TikTokDestination` is the synchronous publishing boundary for the future worker. It accepts a
+`TikTokDestination` is the synchronous publishing boundary for the worker. It accepts a
 validated `TikTokSession`, an MP4 path, and a caption. Publication defaults to private (`visibility=1`);
 public visibility requires an explicit `visibility=0`. Hashtag metadata uses UTF-16 offsets and
 matching markup. Mentions remain plain text, without account lookups.
@@ -67,13 +67,49 @@ timeouts, 5xx responses, or malformed acknowledgements produce `upload_outcome_u
 The Bun signer launches a short-lived, network-blocked Chromium context and does not receive
 account cookies. Its vendored assets and attribution are in `signer/tiktok/`. Run from the checkout
 root, or set `SOCAUTO_TIKTOK_SIGNER_SCRIPT` to its absolute path. Python wheels do not contain the
-Bun dependencies or signer directory; deploy these alongside the backend. The adapter does not
-delete media or update jobs; those responsibilities belong to phase 6.
+Bun dependencies or signer directory; deploy these alongside the backend. The pipeline, rather
+than the adapter, persists job results and cleans acknowledged-success media.
 
 A `PublishResult` means TikTok acknowledged the request, not that moderation finished or a public
 post is visible. A post URL may be unavailable. Local tests do **not** establish that the current
 private endpoint accepts these signatures; an opt-in private-account smoke test is still required.
 Do not enable raw `http.client` wire dumps or log Requests objects, cookies, signed URLs, or responses.
+
+## Worker
+
+Apply migrations, then run the worker separately from the API, from the same checkout directory
+and with the same `SOCAUTO_DATA_DIR`:
+
+```bash
+uv run alembic upgrade head
+uv run python -m socauto.worker
+```
+
+The worker consumes existing database jobs. HTTP job submission and retry endpoints arrive in
+phase 7; this phase does not add a user-facing CLI. Worker publication is private-only for now.
+
+- Each claim executes one stage: `pending -> downloading -> downloaded`, then
+  `downloaded -> uploading -> posted | failed`. The resolved caption survives restarts and retries.
+- Short SQLite transactions atomically claim jobs. A separate heartbeat renews the lease every
+  third of `SOCAUTO_WORKER_LEASE_SECONDS` (default 300). Completion and renewal require the same
+  unexpired claim; a stale worker cannot overwrite recovery or a replacement worker's result.
+  The adapter checks ownership again immediately before its irreversible publish request.
+- Downloads use `jobs/<job-id>/<attempt-id>/video.mp4`, preventing a late, expired download from
+  overwriting its replacement. Retained media is checked for path containment, size, and SHA-256
+  before upload. The jobs directory must remain private to trusted local processes.
+- Cancellation is accepted before an upload claim. A running download finishes before cancellation
+  is recorded; an upload already claimed cannot be cancelled safely. `SIGINT`/`SIGTERM` stop new
+  claims and let the active stage finish while heartbeats continue. Forced termination is recovered
+  after lease expiry, not immediately on restart.
+- Expired downloads are requeued. Expired uploads fail with `upload_outcome_unknown`, requiring
+  manual review before retry. Bounded retries live inside the source/HTTP adapters; the worker never
+  blindly replays a whole publish operation, including after a retryable transport error.
+- `posted` means a durable TikTok acknowledgement, **not confirmed public visibility**. Creation,
+  video, and optional post identifiers are saved even when `posted_url` is null. If the acknowledgement
+  cannot be saved before lease loss or a crash, retain the media and review the unknown outcome.
+- Successful attempt files are removed only after committing `posted`. Cleanup failures are retried
+  by later worker passes. Failed, cancelled, and orphaned interrupted attempts are retained for
+  inspection, not automatically pruned. Monitor disk usage; no retention policy exists yet.
 
 ## Development
 

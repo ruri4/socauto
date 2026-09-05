@@ -1,5 +1,6 @@
 """Destination contract, independent of queue and API concerns."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Protocol
@@ -26,5 +27,10 @@ class PublishError(Exception):
 
 class Destination(Protocol):
     def publish(
-        self, media: Path, caption: str, *, visibility: Literal[0, 1] = 1
+        self,
+        media: Path,
+        caption: str,
+        *,
+        visibility: Literal[0, 1] = 1,
+        before_publish: Callable[[], None] | None = None,
     ) -> PublishResult: ...

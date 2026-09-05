@@ -98,7 +98,14 @@ class TikTokDestination:
         self.signer = signer or BunSigner(settings)
         self.session_factory = session_factory
 
-    def publish(self, media: Path, caption: str, *, visibility: Literal[0, 1] = 1) -> PublishResult:
+    def publish(
+        self,
+        media: Path,
+        caption: str,
+        *,
+        visibility: Literal[0, 1] = 1,
+        before_publish: Callable[[], None] | None = None,
+    ) -> PublishResult:
         try:
             caption_length = len(caption.encode("utf-16-le")) // 2
         except UnicodeError:
@@ -170,6 +177,8 @@ class TikTokDestination:
             validate_signed_url(url, signed)
             if requests.Request("POST", signed).prepare().url != signed:
                 raise PublishError("tiktok_signer_invalid_output")
+            if before_publish is not None:
+                before_publish()
             response = api.request(
                 "POST",
                 signed,

@@ -70,6 +70,7 @@ class Job(SQLModel, table=True):
         ondelete="RESTRICT",
     )
     caption_override: str | None = Field(default=None, max_length=2200)
+    resolved_caption: str | None = None
     state: JobState = Field(
         default=JobState.PENDING,
         sa_column=Column(
@@ -91,6 +92,9 @@ class Job(SQLModel, table=True):
     error_code: str | None = Field(default=None, max_length=128)
     error_message: str | None = Field(default=None, max_length=1000)
     posted_url: str | None = Field(default=None, max_length=2048)
+    creation_id: str | None = Field(default=None, max_length=128)
+    video_id: str | None = Field(default=None, max_length=128)
+    post_id: str | None = Field(default=None, max_length=128)
     created_at: datetime = Field(
         default_factory=utc_now,
         sa_column=Column(UTCDateTime(), nullable=False),
