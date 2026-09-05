@@ -1,8 +1,9 @@
 # Roadmap
 
 socauto is being built as an API-first X/Twitter-to-TikTok automation backend. The MVP is
-currently **4 of 8 phases complete**. Persistence, TikTok account login, and X video downloads are
-working, but the upload and worker pipeline are not connected yet.
+currently **5 of 8 phases complete**. Persistence, TikTok account login, X downloads, and the
+publishing adapter are implemented. The worker pipeline is not connected and live publishing
+has not been verified.
 
 ## Current capabilities
 
@@ -15,6 +16,7 @@ working, but the upload and worker pipeline are not connected yet.
 - Paginated account listing and safe account deletion
 - Typed X metadata extraction and private H.264/AAC MP4 downloads through `yt-dlp` and FFmpeg
 - Python tooling through `uv`; browser-side signing tooling through Bun and Playwright Core
+- HTTP TikTok upload adapter with isolated credentials and an offline-tested Bun signer
 
 ## Phases
 
@@ -60,17 +62,22 @@ Commit: `884ccd6 add X media source adapter`
 - [x] Reject multi-video tweets explicitly in the MVP
 - [x] Return typed metadata and download failures without credential-bearing diagnostics
 
-### 5. TikTok publishing adapter - next
+### 5. TikTok publishing adapter - complete
 
-- [ ] Adapt the required MIT-licensed HTTP flow from TiktokAutoUploader with attribution
-- [ ] Create upload projects and validate temporary upload credentials
-- [ ] Transfer 5 MiB chunks with verified CRC32 values
-- [ ] Finish and commit uploads with strict HTTP and TikTok status validation
-- [ ] Generate `_signature` and `X-Bogus` through Bun, Playwright Core, and system Chromium
-- [ ] Keep one stable user agent across login, signing, transfer, and publication
-- [ ] Retry only transient network and 5xx failures within strict bounds
+- [x] Adapt the required MIT-licensed HTTP flow from TiktokAutoUploader with attribution
+- [x] Create upload projects and validate temporary upload credentials
+- [x] Transfer 5 MiB chunks with CRC32 values; validate echoed CRCs when present
+- [x] Finish and commit uploads with strict HTTP and TikTok status validation
+- [x] Generate `_signature` and `X-Bogus` through Bun, Playwright Core, and system Chromium
+- [x] Keep one stable user agent across login, signing, transfer, and publication
+- [x] Retry transient network and 5xx failures only on explicitly safe operations
+- [x] Treat ambiguous publish results as unknown, never as an automatic retry
+- [x] Verify mocked HTTP sequencing, failure cases, and real offline signing
 
-### 6. Worker and pipeline
+Live private upload verification remains in phase 8. Publish acknowledgements do not guarantee
+public visibility, and successful responses may not provide a post URL.
+
+### 6. Worker and pipeline - next
 
 - [ ] Add a standalone worker process with durable job claiming and lease renewal
 - [ ] Run `pending -> downloading -> downloaded -> uploading -> posted | failed`

@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     x_cookie_file: Path | None = None
     tiktok_auth_timeout_seconds: int = Field(default=300, ge=30, le=1800)
     tiktok_chromium_binary: Path | None = None
+    tiktok_signer_script: Path = Path("signer/tiktok/sign.js")
+    tiktok_signer_timeout_seconds: int = Field(default=45, ge=10, le=120)
+    tiktok_http_timeout_seconds: int = Field(default=30, ge=5, le=120)
+    tiktok_http_attempts: int = Field(default=3, ge=1, le=5)
     tiktok_login_url: str = "https://www.tiktok.com/login"
     tiktok_user_agent: str = (
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "

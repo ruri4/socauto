@@ -2,6 +2,10 @@
   "name": "socauto-signers",
   "private": true,
   "type": "module",
+  "scripts": {
+    "test": "bun test signer/tiktok",
+    "sign:tiktok": "bun run signer/tiktok/sign.js"
+  },
   "engines": {
     "bun": ">=1.3.0"
   },
