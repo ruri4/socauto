@@ -1,0 +1,49 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "socauto"
+version = "0.1.0"
+description = "API-first social media republishing automation"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "alembic>=1.16,<2",
+  "fastapi>=0.116,<1",
+  "pydantic-settings>=2.10,<3",
+  "requests>=2.32,<3",
+  "selenium>=4.35,<5",
+  "sqlmodel>=0.0.24,<0.1",
+  "uvicorn[standard]>=0.35,<1",
+  "yt-dlp>=2025.8.27",
+]
+
+[dependency-groups]
+dev = [
+  "httpx>=0.28,<1",
+  "mypy>=1.17,<2",
+  "pytest>=8.4,<9",
+  "pytest-cov>=6.2,<7",
+  "ruff>=0.12,<1",
+  "types-requests>=2.32,<3",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/socauto"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "tests"]
+
+[tool.pytest.ini_options]
+addopts = "--strict-config --strict-markers"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "RUF", "SIM", "UP"]
