@@ -1,8 +1,8 @@
 # Roadmap
 
 socauto is being built as an API-first X/Twitter-to-TikTok automation backend. The MVP is
-currently **3 of 8 phases complete**. Persistence and TikTok account login are working, but the
-download, upload, and worker pipeline are not connected yet.
+currently **4 of 8 phases complete**. Persistence, TikTok account login, and X video downloads are
+working, but the upload and worker pipeline are not connected yet.
 
 ## Current capabilities
 
@@ -13,6 +13,7 @@ download, upload, and worker pipeline are not connected yet.
 - Interactive host-local TikTok login through Selenium and Chromium
 - Validated TikTok cookies stored as private, versioned JSON files
 - Paginated account listing and safe account deletion
+- Typed X metadata extraction and private H.264/AAC MP4 downloads through `yt-dlp` and FFmpeg
 - Python tooling through `uv`; browser-side signing tooling through Bun and Playwright Core
 
 ## Phases
@@ -47,17 +48,19 @@ Commit: `92c3012 add TikTok account authentication`
 - [x] Strict required-cookie validation and atomic JSON storage with mode `0600`
 - [x] Credential-safe API responses and session-path containment
 
-### 4. X source adapter - next
+### 4. X source adapter - complete
 
-- [ ] Extract tweet metadata and media through the `yt-dlp` Python API
-- [ ] Support an optional Netscape cookie file for gated posts
-- [ ] Download into a job-private directory with controlled filenames
-- [ ] Prefer or merge to TikTok-compatible H.264/AAC MP4 using FFmpeg
-- [ ] Use tweet text as the default caption while allowing an API override
-- [ ] Reject multi-video tweets explicitly in the MVP
-- [ ] Return typed metadata and download failures without credential-bearing diagnostics
+Commit: `884ccd6 add X media source adapter`
 
-### 5. TikTok publishing adapter
+- [x] Extract tweet metadata and media through the `yt-dlp` Python API
+- [x] Support an optional Netscape cookie file for gated posts
+- [x] Download into a job-private directory with controlled filenames
+- [x] Prefer or merge to TikTok-compatible H.264/AAC MP4 using FFmpeg
+- [x] Use tweet text as the default caption while allowing an API override
+- [x] Reject multi-video tweets explicitly in the MVP
+- [x] Return typed metadata and download failures without credential-bearing diagnostics
+
+### 5. TikTok publishing adapter - next
 
 - [ ] Adapt the required MIT-licensed HTTP flow from TiktokAutoUploader with attribution
 - [ ] Create upload projects and validate temporary upload credentials
