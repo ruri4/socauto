@@ -101,6 +101,8 @@ def _parse_cookie(row: object) -> TikTokCookie | None:
         raise ValueError
     if domain.lower() not in DOMAINS:
         return None
+    if row.get("value") == "":
+        return None
     expiry = row.get("expirationDate", row.get("expiry", row.get("expires_at")))
     if expiry is not None and (type(expiry) not in (int, float) or expiry < -1):
         raise ValueError

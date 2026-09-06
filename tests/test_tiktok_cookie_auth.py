@@ -46,6 +46,17 @@ def test_imports_browser_json() -> None:
     assert session.cookie_value("secret") is None
 
 
+def test_ignores_empty_optional_cookies() -> None:
+    rows = [
+        *cookie_rows(),
+        {"domain": ".tiktok.com", "path": "/", "name": "optional", "value": ""},
+    ]
+
+    session = parse_cookie_export(json.dumps(rows).encode(), "exporting-browser")
+
+    assert session.cookie_value("optional") is None
+
+
 def test_imports_wrapped_browser_json() -> None:
     content = json.dumps({"cookies": cookie_rows(), "origins": []}).encode()
     assert parse_cookie_export(content, "agent").cookie_value("sessionid") == "session"
