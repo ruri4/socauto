@@ -13,7 +13,6 @@ trigger platform restrictions. Only republish media you have permission to use.
 - FastAPI, Uvicorn, SQLModel, SQLite, and Alembic
 - `yt-dlp` and FFmpeg for X media
 - Requests for TikTok transfer and publishing
-- Selenium for interactive TikTok login
 - Bun, Playwright Core, and system Chromium for TikTok request signing
 
 There is no frontend or official-platform API dependency.
@@ -47,9 +46,27 @@ The API has no client authentication or tenant isolation yet. Keep it bound to l
 an authenticated private gateway. Do not expose it directly to the internet; callers can connect
 accounts and queue publications. CORS and frontend integration are not configured.
 
-To connect TikTok, call `POST /v1/accounts/tiktok/auth` from the same host as the API. The request
-opens a visible Chromium window and completes after login cookies are captured or the configured
-timeout expires. Session JSON is stored with mode `0600` beneath the private data directory.
+To connect TikTok, export `tiktok.com` cookies from an already authenticated browser as Netscape
+cookie text, a browser-extension JSON array, or a JSON object containing a `cookies` array. Upload
+that file to `POST /v1/accounts/tiktok/import` as the multipart field `file`. The optional
+`user_agent` form field should match the exporting browser's `navigator.userAgent`; imports fall back
+to `SOCAUTO_TIKTOK_USER_AGENT` when it is omitted. `/docs` provides a file picker for this request.
+
+The import is limited to 1 MiB, ignores non-TikTok domains, requires usable `sessionid` and
+`tt-target-idc` cookies, and makes a live account-info request before saving anything. A successful
+response includes the account ID, username, display name, and validation timestamp. Reimporting the
+same TikTok user replaces its session without changing the account ID; another user creates another
+destination account. The original upload is closed and not retained. Normalized session JSON is
+stored beneath the private data directory with mode `0600`; cookie values and paths are never
+returned by the API.
+
+Revalidate a stored session with `POST /v1/accounts/{id}/session/validate`. It performs the same
+read-only account-info check, refreshes local account metadata/status, and does not upload, publish,
+or refresh cookies. Both import and validation use private TikTok endpoints that can be rate-limited,
+challenged, or changed without notice. Keep the API on loopback or use TLS behind an authenticated
+private gateway because the import request contains credentials. Never commit an export, paste it
+into logs, or use an online cookie converter. A root `cookies.txt` remains ignored by Git as a local
+safety measure, but socauto never loads it automatically.
 
 Public X posts need no source credentials. For restricted posts, set `SOCAUTO_X_COOKIE_FILE` to a
 Netscape-format cookie file readable by the worker. Downloads are written beneath the private jobs
@@ -67,7 +84,7 @@ Connect an account, then submit a job with `POST /v1/jobs`:
 }
 ```
 
-Replace the account UUID with the ID returned by login or `GET /v1/accounts`.
+Replace the account UUID with the ID returned by import or `GET /v1/accounts`.
 The response is `202 Accepted` with a job snapshot and a `Location: /v1/jobs/<id>` header.
 Submission only writes to SQLite; the separate worker performs downloads and uploads.
 Omitted/null captions use tweet text; an empty string explicitly clears the caption. Overrides

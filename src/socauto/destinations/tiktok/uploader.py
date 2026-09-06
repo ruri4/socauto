@@ -4,7 +4,6 @@ import json
 import re
 import secrets
 import string
-import time
 from collections.abc import Callable
 from html import escape
 from pathlib import Path
@@ -16,8 +15,9 @@ from pydantic import ValidationError
 
 from socauto.config import Settings
 from socauto.destinations.base import PublishError, PublishResult
+from socauto.destinations.tiktok.cookies import attach_cookies
 from socauto.destinations.tiktok.http import TikTokHTTP, check_status
-from socauto.destinations.tiktok.session import TikTokSession
+from socauto.destinations.tiktok.session import TikTokSession, TikTokSessionError
 from socauto.destinations.tiktok.signer import PUBLISH_URL, BunSigner, Signer, validate_signed_url
 from socauto.destinations.tiktok.transfer import BASE_URL, VideoTransfer
 
@@ -123,7 +123,10 @@ class TikTokDestination:
             for client in (api_session, storage_session):
                 client.trust_env = False  # No implicit proxies or netrc credentials.
                 client.headers.update({"User-Agent": credentials.user_agent})
-            self._cookies(api_session, credentials)
+            try:
+                attach_cookies(api_session, credentials)
+            except TikTokSessionError:
+                raise PublishError("tiktok_session_invalid") from None
             api_session.headers.update({"Referer": BASE_URL + "/", "Origin": BASE_URL})
             api = self._http(api_session)
             storage = self._http(storage_session)
@@ -201,27 +204,3 @@ class TikTokDestination:
             attempts=self.settings.tiktok_http_attempts,
             timeout=self.settings.tiktok_http_timeout_seconds,
         )
-
-    @staticmethod
-    def _cookies(client: requests.Session, session: TikTokSession) -> None:
-        now = time.time()
-        required: set[str] = set()
-        for cookie in session.cookies:
-            domain = (cookie.domain or ".tiktok.com").lower()
-            if domain.lstrip(".") not in ("tiktok.com", "www.tiktok.com"):
-                continue
-            if cookie.expires_at is not None and cookie.expires_at <= now:
-                continue
-            if cookie.path != "/":
-                continue
-            client.cookies.set(
-                cookie.name,
-                cookie.value,
-                domain=domain,
-                path="/",
-                secure=True,
-                expires=cookie.expires_at,
-            )
-            required.add(cookie.name)
-        if not {"sessionid", "tt-target-idc"} <= required:
-            raise PublishError("tiktok_session_invalid")

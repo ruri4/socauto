@@ -1,4 +1,5 @@
 .env
+/cookies.txt
 .coverage
 .mypy_cache/
 .pytest_cache/

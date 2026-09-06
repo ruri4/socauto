@@ -1,11 +1,13 @@
 """Public destination-account API schemas."""
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
 from socauto.db.models import AccountPlatform, AccountStatus
+from socauto.destinations.tiktok.account_info import TikTokAccountInfo
 
 
 class AccountResponse(BaseModel):
@@ -25,3 +27,17 @@ class AccountListResponse(BaseModel):
     total: int
     offset: int
     limit: int
+
+
+class AccountSessionResponse(BaseModel):
+    account_id: UUID
+    valid: Literal[True] = True
+    checked_at: datetime
+    user: TikTokAccountInfo
+
+
+class AccountImportResponse(BaseModel):
+    account: AccountResponse
+    valid: Literal[True] = True
+    checked_at: datetime
+    user: TikTokAccountInfo

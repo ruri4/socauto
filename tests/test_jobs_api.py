@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 from sqlmodel import Session
 from test_accounts import account_client as account_client
+from test_accounts import import_account
 from test_worker import FakeDestination, FakeSource
 
 from socauto.config import Settings
@@ -21,7 +22,7 @@ ClientContext = tuple[TestClient, Settings, Engine]
 @pytest.fixture
 def job_api(account_client: ClientContext) -> Iterator[tuple[ClientContext, str]]:
     client, _, _ = account_client
-    account_id = client.post("/v1/accounts/tiktok/auth").json()["id"]
+    account_id = str(import_account(client)["id"])
     yield account_client, account_id
 
 
@@ -72,7 +73,7 @@ def test_submission_detail_deduplication_and_history(job_api: tuple[ClientContex
     assert duplicate.json()["detail"]["existing_job_id"] == job_id
     assert duplicate.json()["detail"]["code"] == "duplicate_job"
     assert client.delete(f"/v1/accounts/{account_id}").status_code == 409
-    other_id = client.post("/v1/accounts/tiktok/auth").json()["id"]
+    other_id = str(import_account(client, "70002")["id"])
     assert submit(client, other_id) != job_id
 
 

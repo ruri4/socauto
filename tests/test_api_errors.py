@@ -8,6 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from sqlmodel import Session
 from test_accounts import account_client as account_client
+from test_accounts import import_account
 from test_jobs_api import ClientContext, set_state, submit
 
 from socauto.db.engine import get_request_session
@@ -19,7 +20,7 @@ from socauto.services import jobs
 
 def test_busy_database_has_safe_retry_response(account_client: ClientContext) -> None:
     client, _, engine = account_client
-    account_id = client.post("/v1/accounts/tiktok/auth").json()["id"]
+    account_id = str(import_account(client)["id"])
     app = cast(FastAPI, client.app)
 
     def short_timeout() -> Iterator[Session]:
@@ -56,7 +57,7 @@ def test_unexpected_errors_are_not_swallowed(
     failure: Exception,
 ) -> None:
     client, _, _ = account_client
-    account_id = client.post("/v1/accounts/tiktok/auth").json()["id"]
+    account_id = str(import_account(client)["id"])
     job_id = submit(client, account_id)
 
     def fail(*args: object, **kwargs: object) -> Job:
@@ -71,7 +72,7 @@ def test_retry_conflict_is_safe(
     account_client: ClientContext, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client, _, _ = account_client
-    account_id = client.post("/v1/accounts/tiktok/auth").json()["id"]
+    account_id = str(import_account(client)["id"])
     job_id = submit(client, account_id)
 
     def fail(*args: object, **kwargs: object) -> Job:
@@ -86,7 +87,7 @@ def test_retry_conflict_is_safe(
 
 def test_retry_rejects_stale_failure_snapshot(account_client: ClientContext) -> None:
     client, _, engine = account_client
-    account_id = client.post("/v1/accounts/tiktok/auth").json()["id"]
+    account_id = str(import_account(client)["id"])
     job_id = submit(client, account_id)
     set_state(engine, job_id, JobState.FAILED, "x_download_failed")
     with Session(engine) as db:
