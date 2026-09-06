@@ -1,9 +1,9 @@
 # Roadmap
 
 socauto is being built as an API-first X/Twitter-to-TikTok automation backend. The MVP is
-currently **7 of 8 phases complete**. Persistence, TikTok account login, X downloads, publishing,
-the standalone worker pipeline, and job HTTP endpoints are implemented. Completion verification
-is next; live publishing has not been verified.
+currently **8 of 8 implementation/offline-verification phases complete**. Persistence, TikTok
+account login, X downloads, publishing, the standalone worker pipeline, and job HTTP endpoints
+are implemented. **Live end-to-end acceptance is deferred and remains unverified.**
 
 ## Current capabilities
 
@@ -76,8 +76,8 @@ Commit: `884ccd6 add X media source adapter`
 - [x] Treat ambiguous publish results as unknown, never as an automatic retry
 - [x] Verify mocked HTTP sequencing, failure cases, and real offline signing
 
-Live private upload verification remains in phase 8. Publish acknowledgements do not guarantee
-public visibility, and successful responses may not provide a post URL.
+Live private upload verification remains in the deferred checklist below. Publish acknowledgements
+do not guarantee public visibility, and successful responses may not provide a post URL.
 
 ### 6. Worker and pipeline - complete
 
@@ -100,21 +100,46 @@ public visibility, and successful responses may not provide a post URL.
 - [x] Stable schemas, bounded validation, and machine-readable documented errors
 - [x] API/worker integration tests, safe SQLite contention responses, and stale retry fencing
 
-### 8. Completion and verification - next
+### 8. Offline completion and verification - complete
 
-- [ ] Unit tests for captions, download selection, cookie handling, signing, chunk CRC, and retries
-- [ ] Mocked integration tests for the complete uploader HTTP sequence and worker pipeline
-- [ ] API tests for all success, validation, conflict, cancellation, and upstream-failure responses
-- [ ] Credential-safe logging tests
-- [ ] Ruff, strict mypy, pytest, Alembic drift, build, and process doctor checks
-- [ ] Opt-in live X download smoke test
-- [ ] Opt-in private TikTok upload smoke test before any public publication test
+- [x] Unit tests for captions, download selection, cookie handling, signing, chunk CRC, and retries
+- [x] Mocked integration tests for the complete uploader HTTP sequence and worker pipeline
+- [x] API success, validation, conflict, cancellation, and expected operational-error tests
+- [x] Credential-safe logging and session-storage failure/transaction rollback tests
+- [x] Real loopback yt-dlp downloads with synthetic H.264/AAC media and FFmpeg merging
+- [x] Correct final output resolution from yt-dlp's `requested_downloads` metadata
+- [x] Real API restart/persistence and graceful API/worker process shutdown tests
+- [x] Real offline Python-to-Bun-to-Chromium signing without platform requests
+- [x] Repeatable `uv run python scripts/verify.py`, no inline environment assignments
+- [x] Ruff, strict mypy, pytest coverage, Bun tests, isolated migration round trips/drift, and builds
+
+Verified on 2026-09-06: **153 Python tests passed**, **93% Python statement coverage**, strict mypy
+over 61 files, and **3 Bun tests passed** including Chromium. Two upstream TestClient deprecation
+warnings remain. Coverage is not proof of live endpoint compatibility.
+
+### Deferred live acceptance - pending, run separately when authorized
+
+No live X download, TikTok login, upload, or publication was run during phase 8.
+
+- [ ] Choose an authorized single-video X post and a test TikTok account; keep the API private.
+- [ ] Complete real TikTok login and verify required session cookies without logging them.
+- [ ] Download the chosen X post; inspect actual H.264/AAC codecs, caption, and one-video selection.
+- [ ] Repeat with source cookies only if restricted-post support is needed.
+- [ ] Submit through the API and worker with **private visibility**, then inspect the TikTok account
+      directly to confirm one playable private post. A `posted` acknowledgement alone is insufficient.
+- [ ] Check durable status/IDs, duplicate submission protection, and successful-media cleanup.
+- [ ] Confirm safe expired-session/error handling and retained-media retry. Inspect the account before
+      acknowledging duplicate risk for an unknown outcome; never blindly replay a publish.
+- [ ] Record versions, date, safe result identifiers, and any endpoint/signature changes here.
+- [ ] Consider a separate explicitly authorized public-publication test only after private acceptance.
 
 ## MVP completion criteria
 
-The MVP is complete when a connected TikTok account can accept one supported X status URL through
-the API, survive API or worker restarts, download exactly one compatible video, publish it once,
-report durable progress and safe errors, and clean up confirmed-success media.
+Live MVP acceptance is still pending. It requires a connected TikTok account to accept one supported
+X status URL through the API, survive API or worker restarts, download exactly one compatible video,
+produce one verified private post, report durable progress and safe errors, and clean up media after
+durable acknowledgement. Exactly-once publication cannot be guaranteed across a lost acknowledgement;
+unknown outcomes require manual review rather than automatic retries.
 
 ## Known risks
 

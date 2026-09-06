@@ -11,6 +11,7 @@ from yt_dlp.utils import DownloadError
 
 from socauto.config import Settings
 from socauto.sources.x import XSourceAdapter
+from socauto.sources.x_output import output_path
 from socauto.sources.x_types import (
     XCookieFileError,
     XDownloadError,
@@ -248,3 +249,33 @@ def test_download_rejects_incompatible_video_codec(tmp_path: Path) -> None:
         adapter.download("https://x.com/user/status/123", job_id=job_id)
 
     assert error.value.code == "x_media_incompatible"
+
+
+@pytest.mark.parametrize("downloads", [[], [{}, {}], "invalid", [None], [{}]])
+def test_download_rejects_ambiguous_or_incomplete_outputs(
+    tmp_path: Path, downloads: object
+) -> None:
+    output = tmp_path / "video.mp4"
+    output.write_bytes(b"video")
+    # A plausible top-level filename must not hide an incomplete download result.
+    with pytest.raises(XDownloadError):
+        output_path({"requested_downloads": downloads, "_filename": str(output)}, tmp_path)
+
+
+def test_download_uses_finished_path_instead_of_premerge_filename(tmp_path: Path) -> None:
+    output = tmp_path / "video.mp4"
+    output.write_bytes(b"video")
+    info = {
+        "requested_downloads": [{"filepath": str(output), "_filename": "video.f1.mp4"}],
+        "_filename": "video.f1.mp4",
+    }
+    assert output_path(info, tmp_path) == output
+
+
+def test_download_rejects_symlinked_output(tmp_path: Path) -> None:
+    outside = tmp_path / "outside.mp4"
+    outside.write_bytes(b"video")
+    output = tmp_path / "video.mp4"
+    output.symlink_to(outside)
+    with pytest.raises(XDownloadError, match="invalid output path"):
+        output_path({"requested_downloads": [{"filepath": str(output)}]}, tmp_path)

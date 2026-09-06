@@ -159,12 +159,29 @@ Worker publication is private-only for now.
 
 ## Development
 
+Run the complete offline verification suite from the checkout:
+
+```bash
+uv run python scripts/verify.py
+```
+
+The script discovers system Chromium (or uses `SOCAUTO_TIKTOK_CHROMIUM_BINARY` from its environment),
+sets child-process configuration internally, and fails if required runtime tools are missing. It runs
+Ruff, strict mypy, pytest with coverage, Bun tests, real loopback yt-dlp/FFmpeg downloads, offline
+Python/Bun/Chromium signing, and API/worker process checks. Migration upgrade/downgrade/upgrade and
+drift checks use a disposable database, **not your runtime database**. Builds go to `dist/`.
+Install locked dependencies first; tool/package setup may need network access, but the tests do not
+log in to or publish on X/TikTok. Live acceptance is deferred in [ROADMAP.md](ROADMAP.md).
+
+Individual checks are also available:
+
 ```bash
 uv run ruff format --check .
 uv run ruff check .
 uv run mypy
 uv run pytest
 bun test signer/tiktok
-# Include the offline Chromium signer smoke test:
-SOCAUTO_TIKTOK_CHROMIUM_BINARY=/usr/bin/chromium-browser bun test signer/tiktok
 ```
+
+Standalone test commands skip Chromium runtime tests unless the browser environment is configured;
+`scripts/verify.py` configures it automatically. FFmpeg/ffprobe are required for media runtime tests.

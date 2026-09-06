@@ -16,6 +16,7 @@ import yt_dlp
 from yt_dlp.utils import DownloadError
 
 from socauto.config import Settings
+from socauto.sources.x_output import output_path
 from socauto.sources.x_types import (
     XCookieFileError,
     XDownloadedMedia,
@@ -191,7 +192,7 @@ class XSourceAdapter:
         except (DownloadError, OSError):
             raise XDownloadError("could not download the X video") from None
 
-        path = self._output_path(video, job_dir)
+        path = output_path(video, job_dir)
         video_codec, audio_codec = _extract_codecs(video)
         if video_codec is not None and not video_codec.startswith(("avc1", "h264")):
             raise XIncompatibleMediaError("downloaded X video is not H.264")
@@ -251,20 +252,6 @@ class XSourceAdapter:
         except (OSError, ValueError):
             raise XDownloadError("invalid job media directory") from None
         return job_dir
-
-    @staticmethod
-    def _output_path(info: Mapping[str, object], job_dir: Path) -> Path:
-        value = info.get("filepath") or info.get("_filename")
-        if not isinstance(value, str):
-            raise XDownloadError("yt-dlp did not report the downloaded file")
-        path = Path(value).resolve()
-        try:
-            path.relative_to(job_dir)
-        except ValueError:
-            raise XDownloadError("yt-dlp reported an invalid output path") from None
-        if path.name != "video.mp4" or not path.is_file():
-            raise XDownloadError("yt-dlp did not produce the expected MP4 file")
-        return path
 
 
 def _require_mapping(value: object) -> Mapping[str, object]:
