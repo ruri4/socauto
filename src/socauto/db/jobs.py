@@ -41,6 +41,10 @@ class InvalidJobTransitionError(ValueError):
         self.target = target
 
 
+class JobConflictError(RuntimeError):
+    """The job changed after it was read."""
+
+
 @dataclass(frozen=True)
 class RecoveryResult:
     reset_downloads: int = 0
@@ -193,7 +197,11 @@ def retry_failed_job(session: Session, job: Job, *, now: datetime | None = None)
         CursorResult[Any],
         session.execute(
             update(Job)
-            .where(col(Job.id) == job.id, col(Job.state) == JobState.FAILED)
+            .where(
+                col(Job.id) == job.id,
+                col(Job.state) == JobState.FAILED,
+                col(Job.updated_at) == job.updated_at,
+            )
             .values(
                 state=target,
                 error_code=None,
@@ -207,7 +215,7 @@ def retry_failed_job(session: Session, job: Job, *, now: datetime | None = None)
     )
     if result.rowcount != 1:
         session.rollback()
-        raise RuntimeError("job changed before retry")
+        raise JobConflictError("job changed before retry")
     session.commit()
     session.refresh(job)
     return job

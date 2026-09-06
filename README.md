@@ -43,6 +43,10 @@ uv run uvicorn socauto.app:app --reload
 The OpenAPI document is available at `/openapi.json`, and interactive API documentation is at
 `/docs`. Runtime state is stored under `SOCAUTO_DATA_DIR` and is ignored by Git.
 
+The API has no client authentication or tenant isolation yet. Keep it bound to loopback or behind
+an authenticated private gateway. Do not expose it directly to the internet; callers can connect
+accounts and queue publications. CORS and frontend integration are not configured.
+
 To connect TikTok, call `POST /v1/accounts/tiktok/auth` from the same host as the API. The request
 opens a visible Chromium window and completes after login cookies are captured or the configured
 timeout expires. Session JSON is stored with mode `0600` beneath the private data directory.
@@ -50,6 +54,48 @@ timeout expires. Session JSON is stored with mode `0600` beneath the private dat
 Public X posts need no source credentials. For restricted posts, set `SOCAUTO_X_COOKIE_FILE` to a
 Netscape-format cookie file readable by the worker. Downloads are written beneath the private jobs
 directory as H.264/AAC MP4 files; posts containing more than one video are rejected in the MVP.
+
+## Job API
+
+Connect an account, then submit a job with `POST /v1/jobs`:
+
+```json
+{
+  "source_url": "https://x.com/example/status/123456789",
+  "destination_account_id": "00000000-0000-0000-0000-000000000000",
+  "caption_override": null
+}
+```
+
+Replace the account UUID with the ID returned by login or `GET /v1/accounts`.
+The response is `202 Accepted` with a job snapshot and a `Location: /v1/jobs/<id>` header.
+Submission only writes to SQLite; the separate worker performs downloads and uploads.
+Omitted/null captions use tweet text; an empty string explicitly clears the caption. Overrides
+are limited to 2200 UTF-16 code units. Publication through the worker is **private-only**.
+
+| Endpoint | Behavior |
+| --- | --- |
+| `GET /v1/jobs` | Newest-first listing, `offset=0`, `limit=50` (maximum 100) |
+| `GET /v1/jobs/{id}` | Current state, safe failure code, timestamps, caption, acknowledgement IDs |
+| `POST /v1/jobs/{id}/retry` | `202`; requeue a failed job, reusing retained media when available |
+| `DELETE /v1/jobs/{id}` | Cancel, not delete history: `200` immediately or `202` while a download drains |
+
+Listing supports optional `state` and `destination_account_id` filters; `total` counts the filtered
+results. Ordering is by creation time descending, then ID. Offset pages are not a frozen snapshot
+while other callers submit jobs. Uploading and posted jobs cannot be cancelled (`409`). Repeated
+cancellation of a cancelled job succeeds. History continues to protect referenced accounts from
+deletion and to deduplicate canonical URLs, including after failure or cancellation.
+
+Errors use `{"detail":{"code":"...","message":"..."}}`. Duplicate submission returns `409`
+with code `duplicate_job` and `detail.existing_job_id`. Other expected errors include `404` for a
+missing account/job, `409` for an inactive account or invalid/concurrently changed job state,
+`422` for invalid input, and `503` with `Retry-After` when SQLite is busy. Validation errors do not
+echo request bodies. Responses omit session files, cookies, local media paths, and worker leases.
+
+Ordinary retries accept no body or `{}`. If `error_code` is `upload_outcome_unknown`, inspect the
+TikTok account first. Only then explicitly send `{"acknowledge_duplicate_risk":true}` to the retry
+endpoint. This can create a duplicate if the original publish succeeded. Requeueing does not prove
+that retained media or the session is valid; the worker rechecks both before publication.
 
 ## TikTok adapter
 
@@ -85,8 +131,8 @@ uv run alembic upgrade head
 uv run python -m socauto.worker
 ```
 
-The worker consumes existing database jobs. HTTP job submission and retry endpoints arrive in
-phase 7; this phase does not add a user-facing CLI. Worker publication is private-only for now.
+The worker consumes database jobs submitted through the API. There is no user-facing CLI.
+Worker publication is private-only for now.
 
 - Each claim executes one stage: `pending -> downloading -> downloaded`, then
   `downloaded -> uploading -> posted | failed`. The resolved caption survives restarts and retries.

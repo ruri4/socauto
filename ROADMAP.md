@@ -1,9 +1,9 @@
 # Roadmap
 
 socauto is being built as an API-first X/Twitter-to-TikTok automation backend. The MVP is
-currently **6 of 8 phases complete**. Persistence, TikTok account login, X downloads, publishing,
-and the standalone worker pipeline are implemented. Job HTTP endpoints are next; live publishing
-has not been verified.
+currently **7 of 8 phases complete**. Persistence, TikTok account login, X downloads, publishing,
+the standalone worker pipeline, and job HTTP endpoints are implemented. Completion verification
+is next; live publishing has not been verified.
 
 ## Current capabilities
 
@@ -18,6 +18,7 @@ has not been verified.
 - Python tooling through `uv`; browser-side signing tooling through Bun and Playwright Core
 - HTTP TikTok upload adapter with isolated credentials and an offline-tested Bun signer
 - Standalone lease-renewing worker with fenced updates, cancellation, and retained-media cleanup
+- Versioned job submission, filtered listing, status, explicit retry, and cancellation endpoints
 
 ## Phases
 
@@ -89,16 +90,17 @@ public visibility, and successful responses may not provide a post URL.
 - [x] Fence stale workers, isolate attempt directories, and verify retained media before upload
 - [x] Verify concurrent claims, heartbeat lifecycle, crash recovery, cleanup, and real process shutdown
 
-### 7. Job API - next
+### 7. Job API - complete
 
-- [ ] `POST /v1/jobs` returning `202 Accepted`
-- [ ] Paginated `GET /v1/jobs`
-- [ ] `GET /v1/jobs/{id}`
-- [ ] `POST /v1/jobs/{id}/retry`
-- [ ] `DELETE /v1/jobs/{id}` for cancellation
-- [ ] Stable schemas and machine-readable errors for a future frontend
+- [x] `POST /v1/jobs` returning `202 Accepted` and a status Location
+- [x] Paginated `GET /v1/jobs` with state/account filters
+- [x] `GET /v1/jobs/{id}` with safe state, caption, and acknowledgement fields
+- [x] `POST /v1/jobs/{id}/retry` with explicit duplicate-risk acknowledgement for unknown outcomes
+- [x] `DELETE /v1/jobs/{id}` for cancellation, preserving history and deduplication
+- [x] Stable schemas, bounded validation, and machine-readable documented errors
+- [x] API/worker integration tests, safe SQLite contention responses, and stale retry fencing
 
-### 8. Completion and verification
+### 8. Completion and verification - next
 
 - [ ] Unit tests for captions, download selection, cookie handling, signing, chunk CRC, and retries
 - [ ] Mocked integration tests for the complete uploader HTTP sequence and worker pipeline
