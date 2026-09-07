@@ -1,0 +1,336 @@
+:root {
+  color-scheme: light;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  --bg: #eef1f3;
+  --surface: #f7f9f9;
+  --surface-raised: #fcfcfb;
+  --surface-soft: #e7ecee;
+  --text: #182126;
+  --muted: #5e6a70;
+  --faint: #849097;
+  --line: #d3dcdf;
+  --line-strong: #bdc8cc;
+  --accent: #c84f46;
+  --accent-strong: #a63b35;
+  --accent-action: #a63b35;
+  --accent-action-hover: #8f312d;
+  --accent-soft: #f5dcd8;
+  --good: #2e7059;
+  --good-soft: #dcece5;
+  --warn: #95652b;
+  --warn-soft: #f4e7d1;
+  --danger: #a63f3b;
+  --danger-soft: #f6dfdd;
+  --shadow: 0 14px 32px rgb(28 44 50 / 7%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #141a1d;
+    --surface: #1b2327;
+    --surface-raised: #222c30;
+    --surface-soft: #273237;
+    --text: #edf1f0;
+    --muted: #a8b3b6;
+    --faint: #7f8d92;
+    --line: #344147;
+    --line-strong: #4a585e;
+    --accent: #e1786b;
+    --accent-strong: #f18c7e;
+    --accent-action: #b14f46;
+    --accent-action-hover: #903e38;
+    --accent-soft: #4b2d2d;
+    --good: #79c3a3;
+    --good-soft: #213d34;
+    --warn: #e1b477;
+    --warn-soft: #493920;
+    --danger: #ed938b;
+    --danger-soft: #472a2b;
+    --shadow: 0 18px 36px rgb(0 0 0 / 22%);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: var(--bg);
+}
+
+body {
+  min-width: 320px;
+  min-height: 100dvh;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+select,
+input[type="checkbox"],
+input[type="radio"] {
+  cursor: pointer;
+}
+
+button:disabled,
+select:disabled,
+input:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+button,
+input,
+select,
+textarea {
+  color: inherit;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+dialog:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 65%, transparent);
+  outline-offset: 2px;
+}
+
+a {
+  color: var(--accent-strong);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.app-shell {
+  min-height: 100dvh;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  min-height: 68px;
+  align-items: center;
+  gap: 28px;
+  padding: 12px clamp(18px, 4vw, 56px);
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.brand {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 760;
+  letter-spacing: -0.02em;
+}
+
+.brand-mark {
+  width: 15px;
+  height: 15px;
+  border-radius: 5px 5px 5px 2px;
+  background: var(--accent);
+  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--surface-raised) 26%, transparent);
+}
+
+.primary-nav {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
+
+.nav-button,
+.workspace-tab {
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.nav-button {
+  padding: 8px 11px;
+}
+
+.nav-button:hover,
+.nav-button.tab-active,
+.workspace-tab:hover,
+.workspace-tab.tab-active {
+  background: var(--surface-soft);
+  color: var(--text);
+}
+
+.api-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+
+.status-dot.online {
+  background: var(--good);
+}
+
+.status-dot.offline {
+  background: var(--danger);
+}
+
+.shell-main {
+  width: min(1440px, 100%);
+  margin: 0 auto;
+  padding: clamp(28px, 5vw, 64px) clamp(18px, 4vw, 56px) 72px;
+}
+
+.intro {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 28px;
+  margin-bottom: 32px;
+}
+
+.intro h1,
+.section-heading h2,
+.detail-heading h2 {
+  margin: 0;
+  letter-spacing: -0.035em;
+}
+
+.intro h1 {
+  font-size: clamp(28px, 4vw, 42px);
+  line-height: 1.05;
+}
+
+.intro p {
+  max-width: 620px;
+  margin: 10px 0 0;
+  color: var(--muted);
+}
+
+.intro-actions,
+.heading-actions,
+.detail-actions,
+.dialog-actions,
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.button {
+  min-height: 38px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 8px 13px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+
+.button:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+}
+
+.button-primary {
+  border-color: var(--accent-action);
+  background: var(--accent-action);
+  color: #fff8f5;
+}
+
+.button-primary:hover:not(:disabled) {
+  border-color: var(--accent-action-hover);
+  background: var(--accent-action-hover);
+}
+
+.button-danger {
+  border-color: color-mix(in srgb, var(--danger) 48%, var(--line));
+  color: var(--danger);
+}
+
+.button-quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
+.button-small {
+  min-height: 32px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.button-block {
+  width: 100%;
+}
+
+.workspace-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.43fr);
+  align-items: start;
+  gap: 28px;
+}
+
+.workspace-column {
+  min-width: 0;
+}
+
+.section-heading,
+.detail-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.section-heading h2,
+.detail-heading h2 {
+  font-size: 20px;
+}
+
+.section-heading p,
+.detail-heading p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}

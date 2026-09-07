@@ -40,6 +40,8 @@ def main() -> None:
         run("uv", "run", "mypy", env=env)
         run("uv", "run", "pytest", "--cov=socauto", "--cov-report=term-missing", env=env)
         run("bun", "test", "signer/tiktok", env=env)
+        run("bun", "run", "--cwd", "web", "check", env=env)
+        run("bun", "run", "--cwd", "web", "build", env=env)
         for action, target in (("upgrade", "head"), ("downgrade", "base"), ("upgrade", "head")):
             run("uv", "run", "alembic", action, target, env=env)
         run("uv", "run", "alembic", "check", env=env)

@@ -1,0 +1,99 @@
+@media (max-width: 900px) {
+  .workspace-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-surface {
+    position: static;
+  }
+}
+
+@media (max-width: 680px) {
+  .topbar {
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    padding: 12px 18px;
+  }
+
+  .primary-nav {
+    order: 3;
+    width: 100%;
+    border-top: 1px solid var(--line);
+    padding-top: 8px;
+  }
+
+  .api-status {
+    margin-left: auto;
+  }
+
+  .shell-main {
+    padding-top: 30px;
+  }
+
+  .intro {
+    display: block;
+  }
+
+  .intro-actions {
+    margin-top: 18px;
+  }
+
+  .intro-actions .button {
+    flex: 1;
+  }
+
+  .section-heading,
+  .detail-heading {
+    display: block;
+  }
+
+  .heading-actions,
+  .detail-actions {
+    margin-top: 13px;
+  }
+
+  .heading-actions .button {
+    flex: 1;
+  }
+
+  .filter-bar {
+    align-items: stretch;
+  }
+
+  .filter-bar .field {
+    flex: 1 1 160px;
+  }
+
+  .job-row,
+  .account-row {
+    grid-template-columns: 1fr;
+  }
+
+  .row-actions {
+    justify-content: flex-start;
+  }
+
+  .pagination {
+    align-items: flex-start;
+  }
+
+  .pagination .button {
+    min-width: 88px;
+  }
+
+  .dialog-inner,
+  .detail-surface-inner {
+    padding: 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

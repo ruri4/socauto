@@ -15,7 +15,8 @@ trigger platform restrictions. Only republish media you have permission to use.
 - curl_cffi with Chrome TLS/HTTP2 impersonation for TikTok transfer and publishing
 - Bun, Playwright Core, and system Chromium for TikTok request signing
 
-There is no frontend or official-platform API dependency.
+The local operator panel is a separate Svelte package under `web/`; it does not add an
+official-platform API dependency.
 
 ## Prerequisites
 
@@ -29,6 +30,7 @@ There is no frontend or official-platform API dependency.
 ```bash
 uv sync
 bun install
+bun install --cwd web
 cp .env.example .env
 uv run alembic upgrade head
 ```
@@ -44,7 +46,36 @@ The OpenAPI document is available at `/openapi.json`, and interactive API docume
 
 The API has no client authentication or tenant isolation yet. Keep it bound to loopback or behind
 an authenticated private gateway. Do not expose it directly to the internet; callers can connect
-accounts and queue publications. CORS and frontend integration are not configured.
+accounts and queue publications. The operator panel is local-only, has no auth, and must not be
+served on a public interface. Its Vite development and preview servers bind to `127.0.0.1` and
+proxy `/health` and `/v1` to the API at `127.0.0.1:8000`; no backend CORS changes are needed.
+
+## Operator panel
+
+Install the independent frontend package from the repository root:
+
+```bash
+bun install --cwd web
+```
+
+Run the API in one terminal and the panel in another:
+
+```bash
+uv run uvicorn socauto.app:app --reload
+bun run --cwd web dev
+```
+
+Open the local Vite URL printed by Bun. For a production bundle and local preview:
+
+```bash
+bun run --cwd web build
+bun run --cwd web preview
+```
+
+The panel only reports API online/offline status. It does not claim that the worker or TikTok is
+healthy. Cookie files are sensitive credentials, are submitted only for verification, and are not
+retained by the API or read and logged by the panel. Job publication is private-only, and `posted`
+means the API acknowledged the request, not that the post is confirmed visible.
 
 To connect TikTok, export `tiktok.com` cookies from an already authenticated browser as Netscape
 cookie text, a browser-extension JSON array, or a JSON object containing a `cookies` array. Upload
