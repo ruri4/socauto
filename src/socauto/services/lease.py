@@ -35,12 +35,12 @@ class Lease:
         while not self.stopped.wait(self.interval):
             try:
                 self.check()
-            except (LostClaimError, SQLAlchemyError):
+            except LostClaimError, SQLAlchemyError:
                 self.lost.set()
                 logger.warning("job %s lease renewal failed", self.job.id)
                 return
 
-    def __enter__(self) -> "Lease":
+    def __enter__(self) -> Lease:
         self.check()
         self.thread.start()
         return self

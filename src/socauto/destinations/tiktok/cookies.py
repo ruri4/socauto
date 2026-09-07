@@ -142,5 +142,5 @@ def parse_cookie_export(content: bytes, user_agent: str) -> TikTokSession:
             else "tiktok_cookie_export_invalid"
         )
         raise TikTokCookieImportError(code) from None
-    except (ValueError, OverflowError, UnicodeError):
+    except ValueError, OverflowError, UnicodeError:
         raise TikTokCookieImportError("tiktok_cookie_export_invalid") from None

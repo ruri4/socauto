@@ -94,5 +94,5 @@ class BunSigner:
                 raise ValueError
             validate_signed_url(url, signed)
             return signed
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             raise PublishError("tiktok_signer_invalid_output") from None

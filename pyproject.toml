@@ -7,7 +7,7 @@ name = "socauto"
 version = "0.1.0"
 description = "API-first social media republishing automation"
 readme = "README.md"
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.14,<3.15"
 dependencies = [
   "alembic>=1.16,<2",
   "curl-cffi>=0.14,<1",
@@ -33,7 +33,7 @@ dev = [
 packages = ["src/socauto"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.14"
 strict = true
 files = ["src", "tests", "scripts"]
 
@@ -43,7 +43,7 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = ["B", "E", "F", "I", "RUF", "SIM", "UP"]

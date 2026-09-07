@@ -9,7 +9,7 @@ trigger platform restrictions. Only republish media you have permission to use.
 
 ## Stack
 
-- Python 3.12, managed by `uv`
+- Python 3.14, managed by `uv`
 - FastAPI, Uvicorn, SQLModel, SQLite, and Alembic
 - `yt-dlp` and FFmpeg for X media
 - curl_cffi with Chrome TLS/HTTP2 impersonation for TikTok transfer and publishing

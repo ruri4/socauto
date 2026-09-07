@@ -84,7 +84,7 @@ class TikTokHTTP:
         for attempt in range(attempts):
             try:
                 response = self._send(method, url, data, headers)
-            except (ConnectionError, Timeout):
+            except ConnectionError, Timeout:
                 if attempt + 1 < attempts:
                     self.sleep(2**attempt)
                     continue

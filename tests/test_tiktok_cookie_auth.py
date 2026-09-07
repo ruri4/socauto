@@ -98,13 +98,13 @@ class AccountInfoClient:
         self.trust_env = True
         self.url: str | None = None
 
-    def __enter__(self) -> "AccountInfoClient":
+    def __enter__(self) -> AccountInfoClient:
         return self
 
     def __exit__(self, *args: object) -> None:
         return None
 
-    def request(self, method: str, url: str, **kwargs: object) -> "AccountInfoResponse":
+    def request(self, method: str, url: str, **kwargs: object) -> AccountInfoResponse:
         self.url = url
         return AccountInfoResponse(self.payload, self.status)
 

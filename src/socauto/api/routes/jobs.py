@@ -65,7 +65,7 @@ def _job_errors() -> Iterator[None]:
         raise api_error(
             409, "invalid_job_state", "The job state does not allow this operation"
         ) from None
-    except (JobConflictError, LostClaimError):
+    except JobConflictError, LostClaimError:
         raise api_error(
             409, "job_changed", "Job changed concurrently; refresh before retrying"
         ) from None

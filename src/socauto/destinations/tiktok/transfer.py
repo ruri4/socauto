@@ -118,7 +118,7 @@ class VideoTransfer:
             if not isinstance(nodes, list) or len(nodes) != 1:
                 raise ValueError
             node = UploadNode.model_validate(nodes[0])
-        except (KeyError, TypeError, ValueError):
+        except KeyError, TypeError, ValueError:
             raise PublishError("tiktok_invalid_upload_address") from None
         url = storage_url(node)
         upload_id = str(uuid4())

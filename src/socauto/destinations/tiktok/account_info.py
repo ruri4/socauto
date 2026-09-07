@@ -67,7 +67,7 @@ class TikTokSessionChecker:
                     timeout=self.settings.tiktok_http_timeout_seconds,
                     attempts=self.settings.tiktok_http_attempts,
                 ).request("GET", ACCOUNT_INFO_URL, retry_safe=True)
-        except (TikTokSessionError, ValidationError):
+        except TikTokSessionError, ValidationError:
             raise TikTokSessionCheckError("tiktok_session_invalid") from None
         except PublishError as error:
             raise TikTokSessionCheckError(error.code) from None

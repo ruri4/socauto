@@ -49,13 +49,13 @@ class CurlResponse:
 
 
 class CurlSession:
-    def __init__(self, upstream: "Upstream") -> None:
+    def __init__(self, upstream: Upstream) -> None:
         self.upstream = upstream
         self.headers: dict[str, str] = {}
         self.cookies = curl_requests.Cookies()
         self.trust_env = True
 
-    def __enter__(self) -> "CurlSession":
+    def __enter__(self) -> CurlSession:
         return self
 
     def __exit__(self, *_: object) -> None:

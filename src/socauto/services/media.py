@@ -27,7 +27,7 @@ def media_path(settings: Settings, job_id: UUID, path: str) -> Path:
             raise ValueError
         if len(relative.parts) == 2:
             UUID(relative.parts[0])
-    except (ValueError, OSError):
+    except ValueError, OSError:
         raise PublishError("retained_media_path_invalid") from None
     return candidate
 
@@ -58,7 +58,7 @@ def cleanup_posted(engine: Engine, settings: Settings) -> None:
                     path.unlink(missing_ok=True)
                 elif path.parent.exists():
                     shutil.rmtree(path.parent)
-            except (OSError, PublishError):
+            except OSError, PublishError:
                 logger.warning("job %s media cleanup deferred", media.job_id)
                 continue
             session.delete(media)

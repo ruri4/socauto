@@ -143,7 +143,7 @@ class XSourceAdapter:
             video = _single_video(root)
         except XSourceError:
             raise
-        except (DownloadError, OSError):
+        except DownloadError, OSError:
             raise XMetadataError("could not read X post metadata") from None
 
         if not _has_video(video):
@@ -189,7 +189,7 @@ class XSourceAdapter:
             video = _single_video(_require_mapping(raw_info))
         except XSourceError:
             raise
-        except (DownloadError, OSError):
+        except DownloadError, OSError:
             raise XDownloadError("could not download the X video") from None
 
         path = output_path(video, job_dir)
@@ -249,7 +249,7 @@ class XSourceAdapter:
             job_dir.parent.chmod(0o700)
             job_dir.mkdir(mode=0o700, exist_ok=True)
             job_dir.chmod(0o700)
-        except (OSError, ValueError):
+        except OSError, ValueError:
             raise XDownloadError("invalid job media directory") from None
         return job_dir
 

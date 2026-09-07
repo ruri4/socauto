@@ -27,7 +27,7 @@ are implemented. **Live end-to-end acceptance is deferred and remains unverified
 
 Commit: `0a56efe bootstrap backend foundation`
 
-- [x] Python 3.12 `uv` project and locked dependencies
+- [x] Python 3.14 `uv` project and locked dependencies
 - [x] FastAPI application factory, health endpoint, and runtime configuration
 - [x] Bun and Playwright Core configured for system Chromium
 - [x] Private runtime directories and setup documentation
