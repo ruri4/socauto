@@ -1,13 +1,51 @@
 import { chromium } from "playwright-core";
 
-const endpoint = "https://www.tiktok.com/tiktok/web/project/post/v1/";
+const endpoints = new Set([
+    "https://www.tiktok.com/tiktok/web/project/post/v1/",
+]);
 
-export async function sign({ url, user_agent, executable_path }) {
+export function validateTarget(url) {
     const target = new URL(url);
-    if (target.origin + target.pathname !== endpoint || target.username || target.password
-        || target.hash || !user_agent || !executable_path) {
+    if (!endpoints.has(target.origin + target.pathname) || target.username || target.password
+        || target.hash) {
         throw new Error("invalid signer input");
     }
+    return target;
+}
+
+export function validateInput({ url, user_agent, executable_path }) {
+    const target = validateTarget(url);
+    if (!user_agent || !executable_path) throw new Error("invalid signer input");
+    return target;
+}
+
+async function installSigner(page) {
+    for (const script of ["signer.js", "xbogus.js"]) {
+        await page.addScriptTag({ path: `${import.meta.dir}/vendor/${script}` });
+    }
+}
+
+async function signInPage(page, { url, user_agent }) {
+    validateTarget(url);
+    return await page.evaluate(({ url, user_agent }) => {
+        const target = new URL(url);
+        if (!target.searchParams.has("verifyFp")) {
+            target.searchParams.set("verifyFp",
+                `verify_${Date.now().toString(36)}_${crypto.randomUUID().replaceAll("-", "_")}`);
+        }
+        const signature = window.byted_acrawler.sign({ url: target.toString() });
+        target.searchParams.set("_signature", signature);
+        const bogus = window.generateBogus(target.searchParams.toString(), user_agent);
+        if (typeof signature !== "string" || !signature || typeof bogus !== "string" || !bogus) {
+            throw new Error("invalid signer result");
+        }
+        target.searchParams.set("X-Bogus", bogus);
+        return { signed_url: target.toString(), user_agent: navigator.userAgent };
+    }, { url, user_agent });
+}
+
+export async function sign({ url, user_agent, executable_path }) {
+    validateInput({ url, user_agent, executable_path });
     const browser = await chromium.launch({
         executablePath: executable_path,
         headless: true,
@@ -26,24 +64,8 @@ export async function sign({ url, user_agent, executable_path }) {
             : route.abort());
         const page = await context.newPage();
         await page.goto("https://www.tiktok.com/", { waitUntil: "domcontentloaded" });
-        for (const script of ["signer.js", "xbogus.js"]) {
-            await page.addScriptTag({ path: `${import.meta.dir}/vendor/${script}` });
-        }
-        return await page.evaluate(({ url, user_agent }) => {
-            const target = new URL(url);
-            if (!target.searchParams.has("verifyFp")) {
-                target.searchParams.set("verifyFp",
-                    `verify_${Date.now().toString(36)}_${crypto.randomUUID().replaceAll("-", "_")}`);
-            }
-            const signature = window.byted_acrawler.sign({ url: target.toString() });
-            target.searchParams.set("_signature", signature);
-            const bogus = window.generateBogus(target.searchParams.toString(), user_agent);
-            if (typeof signature !== "string" || !signature || typeof bogus !== "string" || !bogus) {
-                throw new Error("invalid signer result");
-            }
-            target.searchParams.set("X-Bogus", bogus);
-            return { signed_url: target.toString(), user_agent: navigator.userAgent };
-        }, { url, user_agent });
+        await installSigner(page);
+        return await signInPage(page, { url, user_agent });
     } finally {
         await browser.close();
     }

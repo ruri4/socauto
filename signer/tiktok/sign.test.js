@@ -1,9 +1,22 @@
 import { expect, test } from "bun:test";
-import { sign } from "./sign.js";
+import { sign, validateInput } from "./sign.js";
 
-test("rejects non-publish URLs before browser launch", async () => {
+test("rejects non-TikTok URLs before browser launch", async () => {
     await expect(sign({ url: "https://evil.test/", user_agent: "test", executable_path: "/missing" }))
         .rejects.toThrow("invalid signer input");
+});
+
+test("allows only the publication signing endpoint", () => {
+    expect(() => validateInput({
+        url: "https://www.tiktok.com/tiktok/web/project/post/v1/?aid=1988",
+        user_agent: "test",
+        executable_path: "/chromium",
+    })).not.toThrow();
+    expect(() => validateInput({
+        url: "https://www.tiktok.com/api/post/item_list/?secUid=test",
+        user_agent: "test",
+        executable_path: "/chromium",
+    })).toThrow("invalid signer input");
 });
 
 test("stdin failures have credential-safe diagnostics", async () => {

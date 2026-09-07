@@ -1,12 +1,12 @@
 import json
 import zlib
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
-import requests
-from requests.adapters import HTTPAdapter
+from curl_cffi import requests as curl_requests
+from curl_cffi.requests.exceptions import Timeout
 
 from socauto.config import Settings
 from socauto.destinations.base import PublishError
@@ -26,23 +26,85 @@ class FakeSigner:
         return self.url
 
 
-class Upstream(HTTPAdapter):
-    """Exercise Requests preparation, cookies and auth, replacing only the wire."""
+class Call:
+    def __init__(self, method: str, url: str, headers: dict[str, str], body: bytes | None) -> None:
+        self.method = method
+        self.url = url
+        self.headers = headers
+        self.body = body
+
+
+class CurlResponse:
+    def __init__(self, payload: object, status: int, url: str) -> None:
+        self.status_code = status
+        self._payload = payload
+        self.content = json.dumps(payload).encode()
+        self.url = url
+
+    def json(self) -> object:
+        return self._payload
+
+    def close(self) -> None:
+        return None
+
+
+class CurlSession:
+    def __init__(self, upstream: "Upstream") -> None:
+        self.upstream = upstream
+        self.headers: dict[str, str] = {}
+        self.cookies = curl_requests.Cookies()
+        self.trust_env = True
+
+    def __enter__(self) -> "CurlSession":
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()
+
+    def close(self) -> None:
+        self.upstream.closed += 1
+
+    def request(
+        self,
+        method: str,
+        url: str,
+        *,
+        data: bytes | None = None,
+        headers: dict[str, str] | None = None,
+        **_: Any,
+    ) -> CurlResponse:
+        merged = dict(self.headers)
+        merged.update(headers or {})
+        host = urlsplit(url).hostname or ""
+        cookie_values = [
+            f"{name}={value}"
+            for name in self.cookies
+            if (host == "tiktok.com" or host.endswith(".tiktok.com"))
+            and (value := self.cookies.get(name))
+        ]
+        if cookie_values:
+            merged["Cookie"] = "; ".join(cookie_values)
+        return self.upstream.respond(method, url, merged, data)
+
+
+class Upstream:
+    """Exercise curl session preparation, cookies and headers, replacing only the wire."""
 
     def __init__(self) -> None:
-        super().__init__()
-        self.calls: list[requests.PreparedRequest] = []
+        self.calls: list[Call] = []
         self.closed = 0
         self.failure: tuple[str, int, object] | None = None
         self.timeout_at: str | None = None
 
-    def send(
-        self, request: requests.PreparedRequest, *args: Any, **kwargs: Any
-    ) -> requests.Response:
-        self.calls.append(request)
-        url = str(request.url)
+    def session(self) -> CurlSession:
+        return CurlSession(self)
+
+    def respond(
+        self, method: str, url: str, headers: dict[str, str], body: bytes | None
+    ) -> CurlResponse:
+        self.calls.append(Call(method, url, headers, body))
         if self.timeout_at and self.timeout_at in url:
-            raise requests.Timeout("secret-token " + url)
+            raise Timeout("secret-token " + url)
         status = 200
         payload: object
         if self.failure and self.failure[0] in url:
@@ -81,23 +143,13 @@ class Upstream(HTTPAdapter):
             }
         elif "phase=transfer" in url or "phase=finish" in url:
             payload = {"code": 2000}
-        elif request.method == "HEAD":
+        elif method == "HEAD":
             payload = {}
         elif "/project/post/" in url:
             payload = {"status_code": 0, "item_id": "12345"}
         else:
             raise AssertionError("unexpected HTTP step")
-        response = requests.Response()
-        response.status_code = status
-        response._content = json.dumps(payload).encode()
-        assert response.content  # Mark the in-memory response as consumed, like Requests does.
-        response.request = request
-        response.url = url
-        return response
-
-    def close(self) -> None:
-        self.closed += 1
-        super().close()
+        return CurlResponse(payload, status, url)
 
 
 def credentials() -> TikTokSession:
@@ -112,14 +164,15 @@ def credentials() -> TikTokSession:
 
 
 def destination(tmp_path: Path, upstream: Upstream) -> tuple[TikTokDestination, FakeSigner, Path]:
-    def factory() -> requests.Session:
-        session = requests.Session()
-        session.mount("https://", upstream)
-        return session
+    def factory() -> CurlSession:
+        return upstream.session()
 
     signer = FakeSigner()
     target = TikTokDestination(
-        Settings(data_dir=tmp_path), credentials(), signer=signer, session_factory=factory
+        Settings(data_dir=tmp_path),
+        credentials(),
+        signer=signer,
+        session_factory=cast(Any, factory),
     )
     media = tmp_path / "video.mp4"
     media.write_bytes(b"a" * CHUNK_SIZE + b"b")

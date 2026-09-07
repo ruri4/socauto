@@ -11,7 +11,8 @@ are implemented. **Live end-to-end acceptance is deferred and remains unverified
 - SQLite persistence managed by SQLModel and Alembic
 - Durable job states, URL canonicalization, destination-level deduplication, leases, retries, and
   restart recovery
-- Explicit uploaded-cookie import with live TikTok identity validation and no browser-login process
+- Explicit uploaded-cookie import with live TikTok identity validation and an optional persistent
+  browser-login utility
 - Validated TikTok cookies stored as private, versioned JSON files
 - Live session identity checks, paginated account listing, and safe account deletion
 - Typed X metadata extraction and private H.264/AAC MP4 downloads through `yt-dlp` and FFmpeg
@@ -121,6 +122,12 @@ warnings remain. Coverage is not proof of live endpoint compatibility.
 Reverified on 2026-09-07 after replacing browser authentication with uploaded-cookie import:
 **170 Python tests passed**, **93% Python statement coverage**, strict mypy over 63 files, and
 **3 Bun tests passed** including Chromium. Live TikTok compatibility remains unverified.
+
+The experimental signed, paginated TikTok profile-content read surface was removed after live
+testing showed that TikTok's page-native requests depend on browser-bound telemetry that cannot be
+reproduced reliably by the service transport. The profile-login utility remains available for
+authentication, while the supported adapter is limited to account validation, transfer, and
+publishing.
 
 ### Deferred live acceptance - pending, run separately when authorized
 

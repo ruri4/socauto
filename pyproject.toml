@@ -10,10 +10,10 @@ readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "alembic>=1.16,<2",
+  "curl-cffi>=0.14,<1",
   "fastapi>=0.116,<1",
   "pydantic-settings>=2.10,<3",
   "python-multipart>=0.0.32",
-  "requests>=2.32,<3",
   "sqlmodel>=0.0.24,<0.1",
   "uvicorn[standard]>=0.35,<1",
   "yt-dlp>=2025.8.27",
@@ -26,7 +26,6 @@ dev = [
   "pytest>=8.4,<9",
   "pytest-cov>=6.2,<7",
   "ruff>=0.12,<1",
-  "types-requests>=2.32,<3",
   "types-yt-dlp>=2025.8.22",
 ]
 

@@ -6,7 +6,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, Mock
 
 import pytest
-import requests
 
 from socauto.config import Settings
 from socauto.destinations.base import PublishError
@@ -30,13 +29,12 @@ def test_vod_signature_matches_botocore_reference(monkeypatch: pytest.MonkeyPatc
             "session_token": "testtoken",
         }
     )
-    request = requests.Request(
+    headers = VODAuth(credentials).headers(
         "POST",
         "https://www.tiktok.com/top/v1?Action=CommitUploadInner&Version=2020-11-19&SpaceName=tiktok",
-        data=b'{"SessionKey":"test"}',
-    ).prepare()
-    assert VODAuth(credentials)(request) is request
-    assert request.headers["Authorization"] == (
+        b'{"SessionKey":"test"}',
+    )
+    assert headers["Authorization"] == (
         "AWS4-HMAC-SHA256 Credential=TESTACCESS/20260906/ap-singapore-1/vod/aws4_request, "
         "SignedHeaders=host;x-amz-content-sha256;x-amz-date;x-amz-security-token, "
         "Signature=48a9e07d237c8422914dac096a28aaac83ae6fc00c388f3f6e165ca7037d9244"

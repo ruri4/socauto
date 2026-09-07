@@ -1,8 +1,8 @@
-import logging
 from unittest.mock import Mock
 
 import pytest
-import requests
+from curl_cffi import requests as curl_requests
+from curl_cffi.requests.exceptions import ConnectionError, Timeout
 
 from socauto.destinations.base import PublishError
 from socauto.destinations.tiktok.http import TikTokHTTP
@@ -12,8 +12,8 @@ def test_retry_bounds_and_response_cleanup() -> None:
     failed = Mock(status_code=503)
     success = Mock(status_code=200)
     success.json.return_value = {"status_code": 0}
-    session = Mock(spec=requests.Session)
-    session.request.side_effect = [requests.Timeout("secret"), failed, success]
+    session = Mock(spec=curl_requests.Session)
+    session.request.side_effect = [Timeout("secret"), failed, success]
     sleep = Mock()
     client = TikTokHTTP(session, sleep=sleep)
     assert client.request("GET", "https://www.tiktok.com/", retry_safe=True) == {"status_code": 0}
@@ -23,12 +23,14 @@ def test_retry_bounds_and_response_cleanup() -> None:
     success.close.assert_called_once()
     assert session.request.call_args.kwargs["allow_redirects"] is False
     assert session.request.call_args.kwargs["timeout"] == (10, 30)
+    assert session.request.call_args.kwargs["impersonate"] == "chrome"
+    assert session.request.call_args.kwargs["quote"] is False
 
 
 @pytest.mark.parametrize("status", [302, 400, 401, 403, 429])
 def test_non_transient_responses_do_not_retry(status: int) -> None:
     response = Mock(status_code=status)
-    session = Mock(spec=requests.Session)
+    session = Mock(spec=curl_requests.Session)
     session.request.return_value = response
     with pytest.raises(PublishError):
         TikTokHTTP(session).request("GET", "https://www.tiktok.com/", retry_safe=True)
@@ -37,8 +39,8 @@ def test_non_transient_responses_do_not_retry(status: int) -> None:
 
 
 def test_network_failure_exhausted_is_safe() -> None:
-    session = Mock(spec=requests.Session)
-    session.request.side_effect = requests.ConnectionError("credential-bearing-url")
+    session = Mock(spec=curl_requests.Session)
+    session.request.side_effect = ConnectionError("credential-bearing-url")
     with pytest.raises(PublishError) as caught:
         TikTokHTTP(session, sleep=Mock()).request("GET", "https://www.tiktok.com/", retry_safe=True)
     assert caught.value.retryable and session.request.call_count == 3
@@ -48,7 +50,7 @@ def test_network_failure_exhausted_is_safe() -> None:
 def test_malformed_json_after_publish_is_unknown() -> None:
     response = Mock(status_code=200)
     response.json.side_effect = ValueError("secret response body")
-    session = Mock(spec=requests.Session)
+    session = Mock(spec=curl_requests.Session)
     session.request.return_value = response
     with pytest.raises(PublishError, match="upload outcome unknown"):
         TikTokHTTP(session).request("POST", "https://www.tiktok.com/", publishing=True)
@@ -56,29 +58,9 @@ def test_malformed_json_after_publish_is_unknown() -> None:
     response.close.assert_called_once()
 
 
-def test_transport_debug_logs_do_not_leak_urls(
-    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    caplog.set_level(logging.DEBUG, logger="urllib3.connectionpool")
-    logger = logging.getLogger("urllib3.connectionpool")
-    monkeypatch.setattr(logger, "disabled", False)
-
-    def request(*args: object, **kwargs: object) -> Mock:
-        logger.debug("POST /publish?msToken=secret-token&_signature=secret-signature")
-        response = Mock(status_code=200)
-        response.json.return_value = {"status_code": 0}
-        return response
-
-    session = Mock(spec=requests.Session)
-    session.request.side_effect = request
-    TikTokHTTP(session).request("POST", "https://www.tiktok.com/", publishing=True)
-    logger.debug("unrelated HTTP request")
-    assert "secret" not in caplog.text and "unrelated HTTP request" in caplog.text
-
-
 def test_publish_flag_overrides_retry_safety() -> None:
-    session = Mock(spec=requests.Session)
-    session.request.side_effect = requests.Timeout("secret")
+    session = Mock(spec=curl_requests.Session)
+    session.request.side_effect = Timeout("secret")
     with pytest.raises(PublishError) as caught:
         TikTokHTTP(session, sleep=Mock()).request(
             "POST", "https://www.tiktok.com/", publishing=True, retry_safe=True

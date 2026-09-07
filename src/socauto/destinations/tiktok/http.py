@@ -1,73 +1,80 @@
-"""Bounded HTTP calls with credential-safe failures and no redirects."""
+"""Bounded curl_cffi calls with credential-safe failures and no redirects."""
 
-import logging
 import time
 from collections.abc import Callable
-from contextvars import ContextVar
-from typing import Any
+from typing import Any, Literal, Protocol, cast
 
-import requests
-from requests.auth import AuthBase
+from curl_cffi import requests as curl_requests
+from curl_cffi.requests.exceptions import ConnectionError, RequestException, Timeout
 
 from socauto.destinations.base import PublishError
 
-_private_request: ContextVar[bool] = ContextVar("tiktok_private_request", default=False)
+CurlSession = curl_requests.Session[curl_requests.Response]
+HttpMethod = Literal[
+    "GET",
+    "POST",
+    "PUT",
+    "DELETE",
+    "OPTIONS",
+    "HEAD",
+    "TRACE",
+    "PATCH",
+    "QUERY",
+]
 
 
-class _TransportFilter(logging.Filter):
-    def filter(self, record: logging.LogRecord) -> bool:
-        # urllib3 DEBUG messages include signed URLs. Suppress only this call context.
-        return not _private_request.get()
+class _Response(Protocol):
+    status_code: int
 
+    def json(self) -> object: ...
 
-for _namespace in ("urllib3.connectionpool", "urllib3.util.retry"):
-    logging.getLogger(_namespace).addFilter(_TransportFilter())
+    def close(self) -> None: ...
 
 
 class TikTokHTTP:
     def __init__(
         self,
-        session: requests.Session,
+        session: CurlSession,
         *,
+        impersonate: str = "chrome",
         attempts: int = 3,
         timeout: float = 30,
         sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         self.session = session
+        self.impersonate = impersonate
         self.attempts = attempts
         self.timeout = timeout
         self.sleep = sleep
 
     def _send(
         self,
-        method: str,
+        method: HttpMethod,
         url: str,
         data: bytes | None,
         headers: dict[str, str] | None,
-        auth: AuthBase | None,
-    ) -> requests.Response:
-        token = _private_request.set(True)
-        try:
-            return self.session.request(
+    ) -> _Response:
+        return cast(
+            _Response,
+            self.session.request(
                 method,
                 url,
                 data=data,
                 headers=headers,
-                auth=auth,
                 timeout=(10, self.timeout),
                 allow_redirects=False,
-            )
-        finally:
-            _private_request.reset(token)
+                impersonate=cast(Any, self.impersonate),
+                quote=False,
+            ),
+        )
 
     def request(
         self,
-        method: str,
+        method: HttpMethod,
         url: str,
         *,
         data: bytes | None = None,
         headers: dict[str, str] | None = None,
-        auth: AuthBase | None = None,
         retry_safe: bool = False,
         publishing: bool = False,
         json_response: bool = True,
@@ -76,8 +83,8 @@ class TikTokHTTP:
         attempts = self.attempts if retry_safe else 1
         for attempt in range(attempts):
             try:
-                response = self._send(method, url, data, headers, auth)
-            except (requests.ConnectionError, requests.Timeout):
+                response = self._send(method, url, data, headers)
+            except (ConnectionError, Timeout):
                 if attempt + 1 < attempts:
                     self.sleep(2**attempt)
                     continue
@@ -85,7 +92,7 @@ class TikTokHTTP:
                     "upload_outcome_unknown" if publishing else "tiktok_network_error",
                     retryable=retry_safe,
                 ) from None
-            except requests.RequestException:
+            except RequestException:
                 raise PublishError(
                     "upload_outcome_unknown" if publishing else "tiktok_request_failed"
                 ) from None

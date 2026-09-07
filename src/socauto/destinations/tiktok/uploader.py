@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import urlencode
 
-import requests
+from curl_cffi import requests as curl_requests
 from pydantic import ValidationError
 
 from socauto.config import Settings
@@ -91,7 +91,9 @@ class TikTokDestination:
         session: TikTokSession,
         *,
         signer: Signer | None = None,
-        session_factory: Callable[[], requests.Session] = requests.Session,
+        session_factory: Callable[
+            [], curl_requests.Session[curl_requests.Response]
+        ] = curl_requests.Session,
     ) -> None:
         self.settings = settings
         self.session = session
@@ -154,14 +156,15 @@ class TikTokDestination:
                 raise PublishError("tiktok_invalid_project_response")
             video_id = VideoTransfer(api, storage).upload(media)
             api.request("HEAD", BASE_URL + "/", retry_safe=True, json_response=False)
-            tokens = [
-                cookie.value
-                for cookie in api_session.cookies
-                if cookie.name == "msToken"
-                and not cookie.is_expired()
-                and cookie.domain.lstrip(".") in ("tiktok.com", "www.tiktok.com")
-            ]
-            if not tokens or not tokens[-1]:
+            token = next(
+                (
+                    value
+                    for domain in (".tiktok.com", "tiktok.com", "www.tiktok.com")
+                    if (value := api_session.cookies.get("msToken", domain=domain, path="/"))
+                ),
+                None,
+            )
+            if not token:
                 raise PublishError("tiktok_ms_token_missing")
             url = (
                 PUBLISH_URL
@@ -172,14 +175,12 @@ class TikTokDestination:
                         "channel": "tiktok_web",
                         "device_platform": "web",
                         "aid": 1988,
-                        "msToken": tokens[-1],
+                        "msToken": token,
                     }
                 )
             )
             signed = self.signer.sign(url, credentials.user_agent)
             validate_signed_url(url, signed)
-            if requests.Request("POST", signed).prepare().url != signed:
-                raise PublishError("tiktok_signer_invalid_output")
             if before_publish is not None:
                 before_publish()
             response = api.request(
@@ -198,9 +199,10 @@ class TikTokDestination:
                 post_id=post_id if isinstance(post_id, str) and post_id.isdecimal() else None,
             )
 
-    def _http(self, session: requests.Session) -> TikTokHTTP:
+    def _http(self, session: curl_requests.Session[curl_requests.Response]) -> TikTokHTTP:
         return TikTokHTTP(
             session,
+            impersonate=self.settings.tiktok_http_impersonate,
             attempts=self.settings.tiktok_http_attempts,
             timeout=self.settings.tiktok_http_timeout_seconds,
         )

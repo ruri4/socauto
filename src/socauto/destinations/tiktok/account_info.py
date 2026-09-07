@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from typing import Protocol
 
-import requests
+from curl_cffi import requests as curl_requests
 from fastapi import Request
 from pydantic import BaseModel, Field, ValidationError
 
@@ -40,7 +40,9 @@ class TikTokSessionChecker:
         self,
         settings: Settings,
         *,
-        session_factory: Callable[[], requests.Session] = requests.Session,
+        session_factory: Callable[
+            [], curl_requests.Session[curl_requests.Response]
+        ] = curl_requests.Session,
     ) -> None:
         self.settings = settings
         self.session_factory = session_factory
@@ -61,6 +63,7 @@ class TikTokSessionChecker:
                 attach_cookies(client, credentials)
                 result = TikTokHTTP(
                     client,
+                    impersonate=self.settings.tiktok_http_impersonate,
                     timeout=self.settings.tiktok_http_timeout_seconds,
                     attempts=self.settings.tiktok_http_attempts,
                 ).request("GET", ACCOUNT_INFO_URL, retry_safe=True)

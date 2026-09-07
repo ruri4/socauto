@@ -23,8 +23,10 @@ class Settings(BaseSettings):
     worker_lease_seconds: int = Field(default=300, ge=30, le=3600)
     x_cookie_file: Path | None = None
     tiktok_chromium_binary: Path | None = None
+    tiktok_browser_profile_dir: Path = Path("data/tiktok-browser-profile")
     tiktok_signer_script: Path = Path("signer/tiktok/sign.js")
     tiktok_signer_timeout_seconds: int = Field(default=45, ge=10, le=120)
+    tiktok_http_impersonate: str = Field(default="chrome", min_length=1, max_length=64)
     tiktok_http_timeout_seconds: int = Field(default=30, ge=5, le=120)
     tiktok_http_attempts: int = Field(default=3, ge=1, le=5)
     tiktok_user_agent: str = (

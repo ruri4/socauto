@@ -104,11 +104,12 @@ class VideoTransfer:
         except ValidationError:
             raise PublishError("tiktok_invalid_upload_credentials") from None
         auth = VODAuth(credentials)
+        apply_url = vod_url("ApplyUploadInner", FileType="video", IsInner="1", FileSize=str(size))
         applied = vod_result(
             self.api.request(
                 "GET",
-                vod_url("ApplyUploadInner", FileType="video", IsInner="1", FileSize=str(size)),
-                auth=auth,
+                apply_url,
+                headers=auth.headers("GET", apply_url),
                 retry_safe=True,
             )
         )
@@ -169,18 +170,20 @@ class VideoTransfer:
             data=",".join(crcs).encode(),
         )
         check_storage(finished)
+        commit_url = vod_url("CommitUploadInner")
+        commit_body = json.dumps(
+            {
+                "SessionKey": node.SessionKey.get_secret_value(),
+                "Functions": [{"name": "GetMeta"}],
+            },
+            separators=(",", ":"),
+        ).encode()
         committed = vod_result(
             self.api.request(
                 "POST",
-                vod_url("CommitUploadInner"),
-                auth=auth,
-                data=json.dumps(
-                    {
-                        "SessionKey": node.SessionKey.get_secret_value(),
-                        "Functions": [{"name": "GetMeta"}],
-                    },
-                    separators=(",", ":"),
-                ).encode(),
+                commit_url,
+                headers=auth.headers("POST", commit_url, commit_body),
+                data=commit_body,
             )
         )
         results = committed.get("Results")

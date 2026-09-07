@@ -6,8 +6,6 @@ from datetime import UTC, datetime
 from urllib.parse import parse_qsl, quote, urlsplit
 
 from pydantic import BaseModel, Field, SecretStr
-from requests import PreparedRequest
-from requests.auth import AuthBase
 
 
 class UploadCredentials(BaseModel):
@@ -16,16 +14,18 @@ class UploadCredentials(BaseModel):
     session_token: SecretStr = Field(min_length=1)
 
 
-class VODAuth(AuthBase):
+class VODAuth:
     def __init__(self, credentials: UploadCredentials) -> None:
         self.credentials = credentials
 
-    def __call__(self, request: PreparedRequest) -> PreparedRequest:
+    def headers(
+        self, method: str, url_string: str, body: bytes | str | None = None
+    ) -> dict[str, str]:
         now = datetime.now(UTC)
         stamp = now.strftime("%Y%m%dT%H%M%SZ")
         date = stamp[:8]
-        url = urlsplit(str(request.url))
-        body = request.body or b""
+        url = urlsplit(url_string)
+        body = body or b""
         if isinstance(body, str):
             body = body.encode()
         if not isinstance(body, bytes):
@@ -46,9 +46,7 @@ class VODAuth(AuthBase):
                 for key, value in parse_qsl(url.query, keep_blank_values=True)
             )
         )
-        canonical = "\n".join(
-            [str(request.method), url.path or "/", query, canonical_headers, names, digest]
-        )
+        canonical = "\n".join([method, url.path or "/", query, canonical_headers, names, digest])
         scope = f"{date}/ap-singapore-1/vod/aws4_request"
         to_sign = (
             f"AWS4-HMAC-SHA256\n{stamp}\n{scope}\n{hashlib.sha256(canonical.encode()).hexdigest()}"
@@ -57,10 +55,9 @@ class VODAuth(AuthBase):
         for part in (date, "ap-singapore-1", "vod", "aws4_request"):
             key = hmac.digest(key, part.encode(), "sha256")
         signature = hmac.new(key, to_sign.encode(), "sha256").hexdigest()
-        request.headers.update(headers)
         access = self.credentials.access_key_id.get_secret_value()
-        request.headers["Authorization"] = (
+        headers["Authorization"] = (
             f"AWS4-HMAC-SHA256 Credential={access}/{scope}, "
             f"SignedHeaders={names}, Signature={signature}"
         )
-        return request
+        return headers

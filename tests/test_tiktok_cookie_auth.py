@@ -2,10 +2,9 @@ import json
 from typing import Any, cast
 
 import pytest
-import requests
+from curl_cffi import requests as curl_requests
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from requests.adapters import HTTPAdapter
 from test_accounts import account_client as account_client
 from test_accounts import import_account
 
@@ -90,23 +89,36 @@ def test_rejects_invalid_cookie_exports(content: bytes, code: str) -> None:
     assert "session" not in str(error.value)
 
 
-class AccountInfoAdapter(HTTPAdapter):
+class AccountInfoClient:
     def __init__(self, *, payload: object, status: int = 200) -> None:
-        super().__init__()
         self.payload = payload
         self.status = status
-        self.request: requests.PreparedRequest | None = None
+        self.headers: dict[str, str] = {}
+        self.cookies = curl_requests.Cookies()
+        self.trust_env = True
+        self.url: str | None = None
 
-    def send(
-        self, request: requests.PreparedRequest, *args: Any, **kwargs: Any
-    ) -> requests.Response:
-        self.request = request
-        response = requests.Response()
-        response.status_code = self.status
-        response._content = json.dumps(self.payload).encode()
-        response.request = request
-        response.url = str(request.url)
-        return response
+    def __enter__(self) -> "AccountInfoClient":
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        return None
+
+    def request(self, method: str, url: str, **kwargs: object) -> "AccountInfoResponse":
+        self.url = url
+        return AccountInfoResponse(self.payload, self.status)
+
+
+class AccountInfoResponse:
+    def __init__(self, payload: object, status_code: int) -> None:
+        self.payload = payload
+        self.status_code = status_code
+
+    def json(self) -> object:
+        return self.payload
+
+    def close(self) -> None:
+        return None
 
 
 def tiktok_session() -> TikTokSession:
@@ -121,7 +133,7 @@ def tiktok_session() -> TikTokSession:
 
 
 def test_live_checker_returns_identity_and_scopes_cookies() -> None:
-    adapter = AccountInfoAdapter(
+    client = AccountInfoClient(
         payload={
             "message": "success",
             "data": {
@@ -132,21 +144,17 @@ def test_live_checker_returns_identity_and_scopes_cookies() -> None:
         }
     )
 
-    def factory() -> requests.Session:
-        client = requests.Session()
-        client.mount("https://", adapter)
-        return client
-
-    info = TikTokSessionChecker(Settings(), session_factory=factory).check(tiktok_session())
+    info = TikTokSessionChecker(Settings(), session_factory=cast(Any, lambda: client)).check(
+        tiktok_session()
+    )
 
     assert info == TikTokAccountInfo(
         user_id="70001", username="tiktok_user", display_name="TikTok User"
     )
-    assert adapter.request is not None
-    assert adapter.request.url == ACCOUNT_INFO_URL
-    assert adapter.request.headers["User-Agent"] == "exporting-browser"
-    assert "sessionid=session" in adapter.request.headers["Cookie"]
-    assert "hidden" not in adapter.request.headers["Cookie"]
+    assert client.url == ACCOUNT_INFO_URL
+    assert client.headers["User-Agent"] == "exporting-browser"
+    assert client.cookies.get("sessionid", domain=".tiktok.com", path="/") == "session"
+    assert client.cookies.get("unrelated", domain=".example.com", path="/") is None
 
 
 @pytest.mark.parametrize(
@@ -158,15 +166,12 @@ def test_live_checker_returns_identity_and_scopes_cookies() -> None:
     ],
 )
 def test_live_checker_rejects_invalid_or_ambiguous_responses(payload: object, code: str) -> None:
-    adapter = AccountInfoAdapter(payload=payload)
-
-    def factory() -> requests.Session:
-        client = requests.Session()
-        client.mount("https://", adapter)
-        return client
+    client = AccountInfoClient(payload=payload)
 
     with pytest.raises(TikTokSessionCheckError) as error:
-        TikTokSessionChecker(Settings(), session_factory=factory).check(tiktok_session())
+        TikTokSessionChecker(Settings(), session_factory=cast(Any, lambda: client)).check(
+            tiktok_session()
+        )
     assert error.value.code == code
 
 

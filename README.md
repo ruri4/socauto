@@ -12,7 +12,7 @@ trigger platform restrictions. Only republish media you have permission to use.
 - Python 3.12, managed by `uv`
 - FastAPI, Uvicorn, SQLModel, SQLite, and Alembic
 - `yt-dlp` and FFmpeg for X media
-- Requests for TikTok transfer and publishing
+- curl_cffi with Chrome TLS/HTTP2 impersonation for TikTok transfer and publishing
 - Bun, Playwright Core, and system Chromium for TikTok request signing
 
 There is no frontend or official-platform API dependency.
@@ -68,6 +68,13 @@ private gateway because the import request contains credentials. Never commit an
 into logs, or use an online cookie converter. A root `cookies.txt` remains ignored by Git as a local
 safety measure, but socauto never loads it automatically.
 
+For a browser session created in this environment, run `uv run python scripts/tiktok_login.py`. It
+opens a persistent non-headless Chromium profile at `SOCAUTO_TIKTOK_BROWSER_PROFILE_DIR` (default
+`data/tiktok-browser-profile`) at TikTok's login page. Complete Google login manually, then close
+Chromium and export/import normalized cookies through the account API. curl_cffi uses the stored
+`TikTokSession` cookies for API traffic; it does not read Chromium's encrypted profile database
+directly. Do not run multiple Chromium processes against the profile, and do not commit or copy it.
+
 Public X posts need no source credentials. For restricted posts, set `SOCAUTO_X_COOKIE_FILE` to a
 Netscape-format cookie file readable by the worker. Downloads are written beneath the private jobs
 directory as H.264/AAC MP4 files; posts containing more than one video are rejected in the MVP.
@@ -121,7 +128,8 @@ validated `TikTokSession`, an MP4 path, and a caption. Publication defaults to p
 public visibility requires an explicit `visibility=0`. Hashtag metadata uses UTF-16 offsets and
 matching markup. Mentions remain plain text, without account lookups.
 
-Media transfer and publishing use HTTP, with a separate cookie-free upload-CDN session. The
+Media transfer and publishing use curl_cffi HTTP sessions, with a separate cookie-free upload-CDN
+session. The
 temporary VOD credentials use AWS Signature V4. Transfer streams 5 MiB CRC32-tagged chunks,
 then validates finish, commit, and publish responses. Only metadata and chunk calls retry
 transient connection/timeout and 5xx failures. Final publication is never automatically retried:

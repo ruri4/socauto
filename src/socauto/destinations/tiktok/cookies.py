@@ -5,7 +5,7 @@ import re
 import time
 from collections.abc import Mapping
 
-import requests
+from curl_cffi import requests as curl_requests
 
 from socauto.destinations.tiktok.session import (
     REQUIRED_COOKIES,
@@ -51,7 +51,9 @@ def usable_cookies(cookies: list[TikTokCookie]) -> list[TikTokCookie]:
     return list(selected.values())
 
 
-def attach_cookies(client: requests.Session, session: TikTokSession) -> None:
+def attach_cookies(
+    client: curl_requests.Session[curl_requests.Response], session: TikTokSession
+) -> None:
     for cookie in usable_cookies(session.cookies):
         client.cookies.set(
             cookie.name,
@@ -59,7 +61,6 @@ def attach_cookies(client: requests.Session, session: TikTokSession) -> None:
             domain=cookie.domain or ".tiktok.com",
             path="/",
             secure=True,
-            expires=cookie.expires_at,
         )
 
 

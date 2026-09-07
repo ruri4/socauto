@@ -19,6 +19,22 @@ class Signer(Protocol):
     def sign(self, url: str, user_agent: str) -> str: ...
 
 
+def chromium_executable(settings: Settings) -> str | None:
+    binary = settings.tiktok_chromium_binary
+    return (
+        str(binary)
+        if binary
+        else next(
+            (
+                path
+                for name in ("chromium-browser", "chromium", "google-chrome")
+                if (path := which(name))
+            ),
+            None,
+        )
+    )
+
+
 def validate_signed_url(original: str, signed: str) -> None:
     before, after = urlsplit(original), urlsplit(signed)
     if (after.scheme, after.netloc, after.path) != (before.scheme, before.netloc, before.path):
@@ -41,19 +57,7 @@ class BunSigner:
         self.settings = settings
 
     def sign(self, url: str, user_agent: str) -> str:
-        binary = self.settings.tiktok_chromium_binary
-        executable = (
-            str(binary)
-            if binary
-            else next(
-                (
-                    path
-                    for name in ("chromium-browser", "chromium", "google-chrome")
-                    if (path := which(name))
-                ),
-                None,
-            )
-        )
+        executable = chromium_executable(self.settings)
         bun = which("bun")
         script: Path = self.settings.tiktok_signer_script.resolve()
         if not bun or not executable or not script.is_file():
