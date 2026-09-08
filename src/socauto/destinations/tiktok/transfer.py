@@ -16,7 +16,13 @@ from socauto.destinations.tiktok.http import TikTokHTTP, check_status
 
 BASE_URL = "https://www.tiktok.com"
 CHUNK_SIZE = 5 * 1024 * 1024
-UPLOAD_DOMAINS = ("tiktok.com", "byteoversea.com", "ibytedtos.com", "bytedanceapi.com")
+UPLOAD_DOMAINS = (
+    "tiktok.com",
+    "byteoversea.com",
+    "ibytedtos.com",
+    "bytedanceapi.com",
+    "tiktokcdn.com",
+)
 
 
 class StoreInfo(BaseModel):
@@ -28,7 +34,7 @@ class UploadNode(BaseModel):
     Vid: str = Field(min_length=1)
     SessionKey: SecretStr = Field(min_length=1)
     UploadHost: str = Field(min_length=1)
-    StoreInfos: list[StoreInfo] = Field(min_length=1, max_length=1)
+    StoreInfos: list[StoreInfo] = Field(min_length=1)
 
 
 def vod_url(action: str, **extra: str) -> str:
@@ -70,7 +76,21 @@ def storage_url(node: UploadNode) -> str:
 
 def check_storage(payload: dict[str, Any], crc: str | None = None) -> None:
     code = payload.get("code")
-    if type(code) is not int or code not in (0, 2000):
+    nested_error = payload.get("error")
+    nested_success = (
+        type(payload.get("success")) is int
+        and payload.get("success") == 0
+        and isinstance(nested_error, dict)
+        and type(nested_error.get("code")) is int
+        and nested_error.get("code") == 200
+        and type(nested_error.get("error_code")) is int
+        and nested_error.get("error_code") == 0
+        and type(nested_error.get("error")) is str
+        and nested_error.get("error") == ""
+        and type(nested_error.get("message")) is str
+        and nested_error.get("message") == ""
+    )
+    if (type(code) is not int or code not in (0, 2000)) and not nested_success:
         raise PublishError("tiktok_chunk_rejected")
     data = payload.get("data")
     if crc is not None and isinstance(data, dict) and "crc32" in data and data["crc32"] != crc:
@@ -104,7 +124,13 @@ class VideoTransfer:
         except ValidationError:
             raise PublishError("tiktok_invalid_upload_credentials") from None
         auth = VODAuth(credentials)
-        apply_url = vod_url("ApplyUploadInner", FileType="video", IsInner="1", FileSize=str(size))
+        apply_url = vod_url(
+            "ApplyUploadInner",
+            FileType="video",
+            IsInner="1",
+            FileSize=str(size),
+            s="g158iqx8434",
+        )
         applied = vod_result(
             self.api.request(
                 "GET",
@@ -115,7 +141,7 @@ class VideoTransfer:
         )
         try:
             nodes = applied["InnerUploadAddress"]["UploadNodes"]
-            if not isinstance(nodes, list) or len(nodes) != 1:
+            if not isinstance(nodes, list) or not nodes:
                 raise ValueError
             node = UploadNode.model_validate(nodes[0])
         except KeyError, TypeError, ValueError:
@@ -189,6 +215,10 @@ class VideoTransfer:
         results = committed.get("Results")
         if not isinstance(results, list) or len(results) != 1 or not isinstance(results[0], dict):
             raise PublishError("tiktok_invalid_commit_response")
-        if results[0].get("Vid") != node.Vid or results[0].get("Code") != 2000:
+        result = results[0]
+        vid = result.get("Vid")
+        if not isinstance(vid, str) or not vid or vid != node.Vid:
+            raise PublishError("tiktok_commit_rejected")
+        if "Code" in result and (type(result["Code"]) is not int or result["Code"] != 2000):
             raise PublishError("tiktok_commit_rejected")
         return node.Vid

@@ -11,7 +11,7 @@ from curl_cffi.requests.exceptions import Timeout
 from socauto.config import Settings
 from socauto.destinations.base import PublishError
 from socauto.destinations.tiktok.session import TikTokCookie, TikTokSession
-from socauto.destinations.tiktok.transfer import CHUNK_SIZE, UploadNode, storage_url
+from socauto.destinations.tiktok.transfer import CHUNK_SIZE, UploadNode, check_storage, storage_url
 from socauto.destinations.tiktok.uploader import TikTokDestination, publish_payload
 
 
@@ -127,11 +127,43 @@ class Upstream:
                     "InnerUploadAddress": {
                         "UploadNodes": [
                             {
+                                "NodeConfig": {"UploadMode": "normal"},
+                                "Protocol": "https",
                                 "Vid": "video-1",
                                 "SessionKey": "vod-session",
                                 "UploadHost": "upload.byteoversea.com",
-                                "StoreInfos": [{"StoreUri": "tos/video", "Auth": "storage-secret"}],
-                            }
+                                "StoreInfos": [
+                                    {
+                                        "StoreUri": "tos/video",
+                                        "Auth": "storage-secret",
+                                        "UploadHeader": {"X-Logical-Part-Mode": "crc32"},
+                                        "UploadID": "storage-upload-1",
+                                    }
+                                ],
+                                "Type": "normal",
+                                "UploadCluster": "upload-cluster",
+                                "UploadHeader": {"X-Logical-Part-Mode": "crc32"},
+                                "Vids": ["video-1"],
+                            },
+                            {
+                                "NodeConfig": {"UploadMode": "normal"},
+                                "Protocol": "https",
+                                "Vid": "video-2",
+                                "SessionKey": "vod-session-2",
+                                "UploadHost": "upload.byteoversea.com",
+                                "StoreInfos": [
+                                    {
+                                        "StoreUri": "tos/video-2",
+                                        "Auth": "storage-secret-2",
+                                        "UploadHeader": {"X-Logical-Part-Mode": "crc32"},
+                                        "UploadID": "storage-upload-2",
+                                    }
+                                ],
+                                "Type": "normal",
+                                "UploadCluster": "upload-cluster",
+                                "UploadHeader": {"X-Logical-Part-Mode": "crc32"},
+                                "Vids": ["video-2"],
+                            },
                         ]
                     }
                 },
@@ -188,6 +220,8 @@ def test_full_upload_prepared_requests_and_lifecycle(tmp_path: Path) -> None:
     assert len(upstream.calls) == 9 and upstream.closed == 2
     assert signer.user_agent == "test-agent"
     assert upstream.calls[-1].url == signer.url
+    apply_call = next(call for call in upstream.calls if "ApplyUploadInner" in call.url)
+    assert parse_qs(urlsplit(str(apply_call.url)).query)["s"] == ["g158iqx8434"]
     for call in upstream.calls:
         assert call.headers["User-Agent"] == signer.user_agent
         if urlsplit(str(call.url)).hostname == "www.tiktok.com":
@@ -210,6 +244,105 @@ def test_full_upload_prepared_requests_and_lifecycle(tmp_path: Path) -> None:
     payload = json.loads(body)
     assert payload["feature_common_info_list"][0]["privacy_setting_info"]["visibility_type"] == 1
     assert media.exists()  # Worker, not uploader, owns cleanup.
+
+
+def test_commit_accepts_observed_missing_code(tmp_path: Path) -> None:
+    upstream = Upstream()
+    upstream.failure = (
+        "CommitUploadInner",
+        200,
+        {
+            "ResponseMetadata": {},
+            "Result": {"Results": [{"Vid": "video-1", "VideoMeta": {"Duration": 1}}]},
+        },
+    )
+    target, _, media = destination(tmp_path, upstream)
+
+    result = target.publish(media, "hello #world")
+
+    assert result.video_id == "video-1"
+
+
+@pytest.mark.parametrize("code", [True, "2000", 2001])
+def test_commit_rejects_present_code_near_misses(tmp_path: Path, code: object) -> None:
+    upstream = Upstream()
+    upstream.failure = (
+        "CommitUploadInner",
+        200,
+        {
+            "ResponseMetadata": {},
+            "Result": {"Results": [{"Vid": "video-1", "VideoMeta": {}, "Code": code}]},
+        },
+    )
+    target, _, media = destination(tmp_path, upstream)
+
+    with pytest.raises(PublishError) as caught:
+        target.publish(media, "hello #world")
+
+    assert caught.value.code == "tiktok_commit_rejected"
+
+
+def test_check_storage_accepts_observed_nested_success() -> None:
+    check_storage(
+        {
+            "Version": "1",
+            "success": 0,
+            "error": {"code": 200, "error_code": 0, "error": "", "message": ""},
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"Version": "1", "success": 0},
+        {"Version": "1", "success": 0, "error": []},
+        {
+            "Version": "1",
+            "success": False,
+            "error": {"code": 200, "error_code": 0, "error": "", "message": ""},
+        },
+        {
+            "Version": "1",
+            "success": 0,
+            "error": {"code": True, "error_code": 0, "error": "", "message": ""},
+        },
+        {
+            "Version": "1",
+            "success": 0,
+            "error": {"code": 200, "error_code": False, "error": "", "message": ""},
+        },
+        {
+            "Version": "1",
+            "success": 1,
+            "error": {"code": 200, "error_code": 0, "error": "", "message": ""},
+        },
+        {
+            "Version": "1",
+            "success": 0,
+            "error": {"code": 201, "error_code": 0, "error": "", "message": ""},
+        },
+        {
+            "Version": "1",
+            "success": 0,
+            "error": {"code": 200, "error_code": 1, "error": "", "message": ""},
+        },
+        {
+            "Version": "1",
+            "success": 0,
+            "error": {"code": 200, "error_code": 0, "error": "failed", "message": ""},
+        },
+        {
+            "Version": "1",
+            "success": 0,
+            "error": {"code": 200, "error_code": 0, "error": "", "message": "failed"},
+        },
+    ],
+)
+def test_check_storage_rejects_nested_near_misses(payload: dict[str, Any]) -> None:
+    with pytest.raises(PublishError) as caught:
+        check_storage(payload)
+    assert caught.value.code == "tiktok_chunk_rejected"
 
 
 def test_guard_aborts_before_irreversible_publish(tmp_path: Path) -> None:
@@ -299,6 +432,8 @@ def test_publish_timeout_is_never_retried(tmp_path: Path) -> None:
         "evil.test",
         "evil.test/tiktok.com",
         "tiktok.com.evil.test",
+        "tiktokcdn.com.evil.test",
+        "evil-tiktokcdn.com",
         "user@tiktok.com",
         "tiktok.com:443",
     ],
@@ -314,6 +449,26 @@ def test_upload_host_allowlist(host: str) -> None:
     )
     with pytest.raises(PublishError, match="upload host rejected"):
         storage_url(node)
+
+
+@pytest.mark.parametrize(
+    "host",
+    [
+        "tiktokcdn.com",
+        "tos-my216-up.tiktokcdn.com",
+        "tos-my16-up.tiktokcdn.com",
+    ],
+)
+def test_upload_host_allowlist_accepts_tiktok_cdn(host: str) -> None:
+    node = UploadNode.model_validate(
+        {
+            "Vid": "video",
+            "SessionKey": "secret",
+            "UploadHost": host,
+            "StoreInfos": [{"StoreUri": "video", "Auth": "secret"}],
+        }
+    )
+    assert storage_url(node) == f"https://{host}/video"
 
 
 def test_expired_and_wrong_domain_sessions_fail_before_network(tmp_path: Path) -> None:
