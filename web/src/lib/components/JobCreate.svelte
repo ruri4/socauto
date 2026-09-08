@@ -2,6 +2,7 @@
   import { api, ApiError, errorMessage } from "../api";
   import { accountName, utf16CodeUnits } from "../format";
   import type { Account, CaptionMode, CaptionTemplate, Job, JobVisibility } from "../types";
+  import InfoTip from "./InfoTip.svelte";
 
   let {
     open = false,
@@ -143,11 +144,10 @@
 </script>
 
 <dialog bind:this={dialog} aria-labelledby="create-job-title" oncancel={(event) => { event.preventDefault(); close(); }}>
-  <div class="dialog-inner">
-    <div class="dialog-heading">
-      <h2 id="create-job-title">Create job</h2>
-      <p>Queue one X video for the selected TikTok visibility. Private is the default; public can be viewed by anyone. The separate worker handles media work.</p>
-    </div>
+    <div class="dialog-inner">
+      <div class="dialog-heading">
+        <h2 id="create-job-title">Create job</h2>
+      </div>
 
     {#if error}
       <div class="inline-error" role="alert">
@@ -171,7 +171,7 @@
     {:else}
       <form class="dialog-form" onsubmit={submit}>
         <div class="field">
-          <label for="source-url">X video URL</label>
+          <div class="label-line"><label for="source-url">X video URL</label><InfoTip label="Supported X URLs" text="The API accepts supported X post URLs. The separate worker downloads and prepares media after a job is queued." /></div>
           <input
             id="source-url"
             bind:this={sourceUrlInput}
@@ -182,7 +182,6 @@
             required
             disabled={submitting}
           />
-          <p class="field-help">Only supported X post URLs are accepted by the API.</p>
         </div>
 
         <div class="field">
@@ -260,13 +259,10 @@
           </div>
         {:else if captionMode === "custom_template"}
           <div class="field">
-            <label for="custom-template">Custom template</label>
+            <div class="label-line"><label for="custom-template">Custom template</label><InfoTip label="Custom template syntax" text={"Use exact {{caption}} to insert the normalized X caption. Other double braces are invalid, and custom templates are not saved."} /></div>
             <textarea id="custom-template" bind:value={customTemplate} aria-invalid={customTemplateCodeUnits > 2200} disabled={submitting}></textarea>
             <p class:over-limit={customTemplateCodeUnits > 2200} class="field-help caption-count">{customTemplateCodeUnits.toLocaleString()} / 2,200 UTF-16 code units</p>
           </div>
-        {/if}
-        {#if captionMode === "saved_template" || captionMode === "custom_template"}
-          <p class="field-help">Use exact <code>{"{{caption}}"}</code> to insert the normalized X caption. Other double braces are invalid; custom templates are not saved.</p>
         {/if}
 
         <div class="dialog-actions">

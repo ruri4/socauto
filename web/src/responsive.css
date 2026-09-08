@@ -26,6 +26,8 @@
     margin-left: auto;
   }
 
+  .api-qualifier { display: none; }
+
   .shell-main {
     padding-top: 30px;
   }
@@ -74,6 +76,7 @@
   }
 
   .pagination {
+    flex-wrap: wrap;
     align-items: flex-start;
   }
 
@@ -85,6 +88,14 @@
   .detail-surface-inner {
     padding: 18px;
   }
+}
+
+@media (max-width: 420px) {
+  .topbar { padding-inline: 12px; }
+  .shell-main { padding-inline: 12px; }
+  .intro-actions, .heading-actions, .detail-actions, .dialog-actions, .pagination-buttons { flex-wrap: wrap; }
+  .intro-actions .button, .heading-actions .button { flex: 1 1 130px; }
+  .dialog-actions .button { flex: 1 1 120px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -2,6 +2,7 @@
   import { api, errorMessage } from "../api";
   import { utf16CodeUnits } from "../format";
   import type { CaptionTemplate } from "../types";
+  import InfoTip from "./InfoTip.svelte";
 
   let templates = $state<CaptionTemplate[]>([]);
   let loading = $state(true);
@@ -96,10 +97,7 @@
 
 <section class="workspace-column" aria-labelledby="templates-title">
   <div class="section-heading">
-    <div>
-      <h2 id="templates-title">Caption templates</h2>
-      <p>Reusable local patterns. Jobs keep an immutable name and body snapshot.</p>
-    </div>
+    <h2 id="templates-title">Caption templates</h2>
     <div class="heading-actions">
       <button class="button button-small" type="button" disabled={loading} onclick={() => void load()}>
         Refresh
@@ -147,7 +145,6 @@
   <div class="dialog-inner">
     <div class="dialog-heading">
       <h2 id="template-dialog-title">{editing ? "Edit template" : "Create template"}</h2>
-      <p>Only exact <code>{"{{caption}}"}</code> is replaced. Its source caption is inserted literally.</p>
     </div>
     {#if formError}<div class="inline-error" role="alert">{formError}</div>{/if}
     <form class="dialog-form" onsubmit={(event) => void save(event)}>
@@ -156,10 +153,9 @@
         <input id="template-name" bind:value={name} maxlength="80" disabled={busy} required />
       </div>
       <div class="field">
-        <label for="template-body">Template body</label>
+        <div class="label-line"><label for="template-body">Template body</label><InfoTip label="Template syntax" text={"Only exact {{caption}} is replaced with the source caption. Single braces are literal. Whitespace in or unknown double braces is invalid. Empty bodies are valid."} /></div>
         <textarea id="template-body" bind:value={body} aria-invalid={tooLong} disabled={busy}></textarea>
         <p class:over-limit={tooLong} class="field-help caption-count">{units.toLocaleString()} / 2,200 UTF-16 code units</p>
-        <p class="field-help">Single braces are literal. Whitespace in or unknown double braces is invalid. Empty bodies are valid.</p>
       </div>
       <div class="dialog-actions">
         <button class="button" type="button" disabled={busy} onclick={close}>Cancel</button>

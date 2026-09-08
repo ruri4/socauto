@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api, errorMessage } from "../api";
   import type { AccountImportResponse } from "../types";
+  import InfoTip from "./InfoTip.svelte";
 
   const maxFileBytes = 1024 * 1024;
 
@@ -108,7 +109,7 @@
 
     <form class="dialog-form" onsubmit={submit}>
       <div class="field">
-        <label for="cookie-file">Cookie export file</label>
+        <div class="label-line"><label for="cookie-file">Cookie export file</label><InfoTip label="Cookie file requirements" text="Netscape text and browser JSON exports are accepted up to 1 MiB. The selected file is held only for this submission." /></div>
         <input
           id="cookie-file"
           bind:this={fileInput}
@@ -118,16 +119,14 @@
           disabled={submitting}
           required
         />
-        <p class="field-help">Netscape text or browser JSON, maximum 1 MiB. The file is held only for this submission.</p>
         {#if selectedFile}
           <p class="selected-file">Selected: {selectedFile.name}</p>
         {/if}
       </div>
 
       <div class="field">
-        <label for="user-agent">Browser user agent <span class="optional">Optional</span></label>
+        <div class="label-line"><label for="user-agent">Browser user agent <span class="optional">Optional</span></label><InfoTip label="Browser user agent guidance" text="Use the exporting browser's user-agent value only when it differs from the server setting." /></div>
         <input id="user-agent" bind:value={userAgent} maxlength="512" type="text" disabled={submitting} />
-        <p class="field-help">Use the exporting browser's value when it differs from the server setting.</p>
       </div>
 
       <div class="dialog-actions">

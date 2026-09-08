@@ -229,10 +229,7 @@
 
   <main class="shell-main">
     <div class="intro">
-      <div>
-        <h1>Operator panel</h1>
-        <p>Local control for account sessions and the TikTok publication queue. Private is the default; public is explicit per job. API status here does not represent worker or TikTok health.</p>
-      </div>
+      <h1>Operator panel</h1>
       <div class="intro-actions">
         {#if workspace === "jobs"}
           <button class="button button-primary" type="button" onclick={() => (createJobOpen = true)}>New job</button>

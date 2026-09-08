@@ -1,5 +1,6 @@
 <script lang="ts">
   type Workspace = "jobs" | "accounts" | "templates";
+  import InfoTip from "./InfoTip.svelte";
 
   let {
     workspace,
@@ -55,6 +56,8 @@
   <div class="api-status" aria-live="polite">
     <span class:online={apiOnline === true} class:offline={apiOnline === false} class="status-dot"></span>
     <span>{apiOnline === true ? "API online" : apiOnline === false ? "API offline" : "Checking API"}</span>
+    <span class="api-qualifier">API only</span>
+    <InfoTip align="end" label="API status information" text="This checks only the local API. It does not confirm worker activity, account sessions, or TikTok availability." />
   </div>
   <button class="button button-small" type="button" disabled={refreshing} onclick={onrefresh}>
     {refreshing ? "Refreshing" : "Refresh"}

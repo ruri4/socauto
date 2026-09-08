@@ -17,8 +17,14 @@
 .field label,
 .field-label {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 720;
+}
+
+.label-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .field input,
@@ -26,7 +32,7 @@
 .field textarea {
   width: 100%;
   border: 1px solid var(--line-strong);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--surface-raised);
   color: var(--text);
 }
@@ -57,11 +63,10 @@
   outline: none;
 }
 
-.field-help,
-.private-note {
+.field-help {
   margin: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .inline-error,
@@ -145,12 +150,17 @@
 }
 
 .status-chip {
+  --status-border: var(--line);
+  --status-background: transparent;
+  --status-color: inherit;
   display: inline-flex;
   align-items: center;
   width: max-content;
-  border: 1px solid var(--line);
+  border: 1px solid var(--status-border);
   border-radius: 999px;
   padding: 3px 8px;
+  background: var(--status-background);
+  color: var(--status-color);
   font-size: 11px;
   font-weight: 760;
   line-height: 1.2;
@@ -160,25 +170,25 @@
 .status-active,
 .status-posted,
 .status-downloaded {
-  border-color: color-mix(in srgb, var(--good) 42%, var(--line));
-  background: var(--good-soft);
-  color: var(--good);
+  --status-border: color-mix(in srgb, var(--good) 42%, var(--line));
+  --status-background: var(--good-soft);
+  --status-color: var(--good);
 }
 
 .status-pending,
 .status-downloading,
 .status-uploading {
-  border-color: color-mix(in srgb, var(--warn) 42%, var(--line));
-  background: var(--warn-soft);
-  color: var(--warn);
+  --status-border: color-mix(in srgb, var(--warn) 42%, var(--line));
+  --status-background: var(--warn-soft);
+  --status-color: var(--warn);
 }
 
 .status-expired,
 .status-failed,
 .status-cancelled {
-  border-color: color-mix(in srgb, var(--danger) 38%, var(--line));
-  background: var(--danger-soft);
-  color: var(--danger);
+  --status-border: color-mix(in srgb, var(--danger) 38%, var(--line));
+  --status-background: var(--danger-soft);
+  --status-color: var(--danger);
 }
 
 .pagination {
@@ -199,7 +209,7 @@
   border-radius: 14px;
   background: var(--surface-raised);
   box-shadow: var(--shadow);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .detail-surface-inner {
@@ -226,7 +236,7 @@ dialog {
   padding: 0;
   background: var(--surface-raised);
   color: var(--text);
-  box-shadow: 0 24px 60px rgb(24 33 38 / 22%);
+  box-shadow: var(--shadow);
 }
 
 dialog::backdrop {

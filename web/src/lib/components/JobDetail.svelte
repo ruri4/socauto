@@ -1,6 +1,6 @@
 <script lang="ts">
   import { api, errorMessage } from "../api";
-  import { accountName, formatDate, isActiveJob, visibilityLabel } from "../format";
+  import { accountName, formatDate, visibilityLabel } from "../format";
   import type { Account, Job } from "../types";
   import StatusChip from "./StatusChip.svelte";
   import UnknownOutcomeDialog from "./UnknownOutcomeDialog.svelte";
@@ -107,11 +107,6 @@
       {/if}
       <div class="detail-state">
         <StatusChip status={job.state} />
-        {#if job.state === "posted"}
-          <span>Posted means acknowledged, not confirmed visible.</span>
-        {:else if isActiveJob(job)}
-          <span>Showing the latest state reported by the API.</span>
-        {/if}
       </div>
 
       <div class="detail-actions detail-actions-main">
@@ -299,7 +294,7 @@
   }
 
   code {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-family: "JetBrains Mono Variable", ui-monospace, monospace;
     font-size: 0.95em;
   }
 
@@ -310,5 +305,10 @@
   .code-danger,
   .code-danger code {
     color: var(--danger);
+  }
+
+  @media (max-width: 480px) {
+    .detail-fields > div { grid-template-columns: 1fr; gap: 3px; padding-block: 12px; }
+    .detail-actions-main { flex-wrap: wrap; }
   }
 </style>

@@ -94,7 +94,6 @@
   <div class="section-heading">
     <div>
       <h2 id="accounts-list-title">Connected accounts</h2>
-      <p>Stored account metadata only. Session files and cookie values never appear here.</p>
     </div>
     <button class="button button-small" type="button" disabled={loading} onclick={onrefresh}>
       {loading ? "Loading" : "Refresh accounts"}
@@ -221,6 +220,7 @@
     gap: 7px 18px;
     margin: 0;
     color: var(--muted);
+    font-family: "JetBrains Mono Variable", ui-monospace, monospace;
     font-size: 12px;
   }
 
@@ -252,7 +252,7 @@
 
   .delete-target span {
     color: var(--muted);
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-family: "JetBrains Mono Variable", ui-monospace, monospace;
     font-size: 11px;
     overflow-wrap: anywhere;
   }

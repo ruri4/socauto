@@ -1,3 +1,5 @@
+import "@fontsource-variable/manrope/wght.css";
+import "@fontsource-variable/jetbrains-mono/wght.css";
 import "./app.css";
 import "./forms.css";
 import "./responsive.css";

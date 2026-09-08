@@ -1,54 +1,54 @@
 :root {
   color-scheme: light;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
   font-synthesis: none;
-  --bg: #eef1f3;
-  --surface: #f7f9f9;
-  --surface-raised: #fcfcfb;
-  --surface-soft: #e7ecee;
-  --text: #182126;
-  --muted: #5e6a70;
-  --faint: #849097;
-  --line: #d3dcdf;
-  --line-strong: #bdc8cc;
-  --accent: #c84f46;
-  --accent-strong: #a63b35;
-  --accent-action: #a63b35;
-  --accent-action-hover: #8f312d;
-  --accent-soft: #f5dcd8;
-  --good: #2e7059;
-  --good-soft: #dcece5;
-  --warn: #95652b;
-  --warn-soft: #f4e7d1;
-  --danger: #a63f3b;
-  --danger-soft: #f6dfdd;
-  --shadow: 0 14px 32px rgb(28 44 50 / 7%);
+  --bg: #f0f0ec;
+  --surface: #e9e9e4;
+  --surface-raised: #f8f8f5;
+  --surface-soft: #e1e2dd;
+  --text: #242826;
+  --muted: #626861;
+  --faint: #858b83;
+  --line: #d2d3cd;
+  --line-strong: #bcbeb6;
+  --accent: #32758c;
+  --accent-strong: #235c70;
+  --accent-action: #28677d;
+  --accent-action-hover: #1d5265;
+  --accent-soft: #d6e8ec;
+  --good: #28745d;
+  --good-soft: #dcece4;
+  --warn: #8d652d;
+  --warn-soft: #f2e8d5;
+  --danger: #a7433f;
+  --danger-soft: #f4dfdc;
+  --shadow: 0 12px 28px rgb(37 42 39 / 9%);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --bg: #141a1d;
-    --surface: #1b2327;
-    --surface-raised: #222c30;
-    --surface-soft: #273237;
-    --text: #edf1f0;
-    --muted: #a8b3b6;
-    --faint: #7f8d92;
-    --line: #344147;
-    --line-strong: #4a585e;
-    --accent: #e1786b;
-    --accent-strong: #f18c7e;
-    --accent-action: #b14f46;
-    --accent-action-hover: #903e38;
-    --accent-soft: #4b2d2d;
-    --good: #79c3a3;
-    --good-soft: #213d34;
-    --warn: #e1b477;
-    --warn-soft: #493920;
-    --danger: #ed938b;
-    --danger-soft: #472a2b;
-    --shadow: 0 18px 36px rgb(0 0 0 / 22%);
+    --bg: #1c1e1c;
+    --surface: #252825;
+    --surface-raised: #2a2d2a;
+    --surface-soft: #323531;
+    --text: #edf0e9;
+    --muted: #b2b8ae;
+    --faint: #899087;
+    --line: #41453f;
+    --line-strong: #585d55;
+    --accent: #71aec0;
+    --accent-strong: #9ed2df;
+    --accent-action: #3d8197;
+    --accent-action-hover: #4d94aa;
+    --accent-soft: #1f3c45;
+    --good: #7bc2a1;
+    --good-soft: #213b31;
+    --warn: #dfb574;
+    --warn-soft: #493a22;
+    --danger: #eb948d;
+    --danger-soft: #492d2d;
+    --shadow: 0 16px 32px rgb(0 0 0 / 20%);
   }
 }
 
@@ -68,7 +68,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 button,
@@ -125,13 +125,12 @@ a {
   top: 0;
   z-index: 2;
   display: flex;
-  min-height: 68px;
+  min-height: 64px;
   align-items: center;
-  gap: 28px;
+  gap: 22px;
   padding: 12px clamp(18px, 4vw, 56px);
   border-bottom: 1px solid var(--line);
-  background: color-mix(in srgb, var(--bg) 94%, transparent);
-  backdrop-filter: blur(12px);
+  background: var(--bg);
 }
 
 .brand {
@@ -149,8 +148,7 @@ a {
   width: 15px;
   height: 15px;
   border-radius: 5px 5px 5px 2px;
-  background: var(--accent);
-  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--surface-raised) 26%, transparent);
+  background: var(--accent-action);
 }
 
 .primary-nav {
@@ -188,9 +186,12 @@ a {
   gap: 8px;
   margin-left: auto;
   color: var(--muted);
-  font-size: 12px;
+  font-family: "JetBrains Mono Variable", ui-monospace, monospace;
+  font-size: 11px;
   white-space: nowrap;
 }
+
+.api-qualifier { color: var(--faint); font-weight: 650; }
 
 .status-dot {
   width: 7px;
@@ -210,7 +211,7 @@ a {
 .shell-main {
   width: min(1440px, 100%);
   margin: 0 auto;
-  padding: clamp(28px, 5vw, 64px) clamp(18px, 4vw, 56px) 72px;
+  padding: clamp(24px, 4vw, 52px) clamp(18px, 4vw, 56px) 72px;
 }
 
 .intro {
@@ -218,7 +219,7 @@ a {
   align-items: end;
   justify-content: space-between;
   gap: 28px;
-  margin-bottom: 32px;
+  margin-bottom: 28px;
 }
 
 .intro h1,
@@ -229,14 +230,8 @@ a {
 }
 
 .intro h1 {
-  font-size: clamp(28px, 4vw, 42px);
+  font-size: clamp(27px, 3vw, 38px);
   line-height: 1.05;
-}
-
-.intro p {
-  max-width: 620px;
-  margin: 10px 0 0;
-  color: var(--muted);
 }
 
 .intro-actions,
@@ -250,13 +245,13 @@ a {
 }
 
 .button {
-  min-height: 38px;
+  min-height: 40px;
   border: 1px solid var(--line-strong);
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 8px 13px;
   background: var(--surface-raised);
   color: var(--text);
-  font-weight: 700;
+  font-weight: 720;
   line-height: 1.2;
   white-space: nowrap;
   transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -294,7 +289,7 @@ a {
 }
 
 .button-small {
-  min-height: 32px;
+  min-height: 34px;
   padding: 6px 10px;
   font-size: 12px;
 }
@@ -307,7 +302,7 @@ a {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 0.43fr);
   align-items: start;
-  gap: 28px;
+  gap: 32px;
 }
 
 .workspace-column {
@@ -325,10 +320,9 @@ a {
 
 .section-heading h2,
 .detail-heading h2 {
-  font-size: 20px;
+  font-size: 21px;
 }
 
-.section-heading p,
 .detail-heading p {
   margin: 5px 0 0;
   color: var(--muted);

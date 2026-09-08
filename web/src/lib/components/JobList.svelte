@@ -71,10 +71,7 @@
 
 <section class="workspace-column" aria-labelledby="jobs-heading">
   <div class="section-heading">
-    <div>
-      <h2 id="jobs-heading">Jobs</h2>
-      <p>Queue, review, and control TikTok publications. Private is the default; public is explicit per job.</p>
-    </div>
+    <h2 id="jobs-heading">Jobs</h2>
     <div class="heading-actions">
       <button class="button button-small" type="button" disabled={loading} onclick={onrefresh}>
         {loading ? "Loading" : "Refresh jobs"}
@@ -186,7 +183,6 @@
       </button>
     </div>
   </div>
-  <p class="private-note list-note">Posted means the API acknowledged a publication, not that it is confirmed visible.</p>
 </section>
 
 <style>
@@ -243,6 +239,7 @@
   .attempt-count,
   .row-visibility {
     color: var(--muted);
+    font-family: "JetBrains Mono Variable", ui-monospace, monospace;
     font-size: 12px;
   }
 
@@ -282,7 +279,4 @@
     gap: 8px;
   }
 
-  .list-note {
-    margin-top: 20px;
-  }
 </style>
