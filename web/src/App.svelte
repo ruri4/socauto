@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { api, errorMessage } from "./lib/api";
-  import { accountName, isActiveJob } from "./lib/format";
+  import { accountName, isActiveJob, visibilityLabel } from "./lib/format";
   import type {
     Account,
     AccountImportResponse,
@@ -151,7 +151,7 @@
 
   function handleCreated(job: Job): void {
     createJobOpen = false;
-    setNotice("success", "Job queued. The API accepted it for private-only publication.");
+    setNotice("success", `Job queued for ${visibilityLabel(job.visibility)} TikTok publication.`);
     jobsOffset = 0;
     void loadJobs().then(() => openJob(job.id));
   }
@@ -230,7 +230,7 @@
     <div class="intro">
       <div>
         <h1>Operator panel</h1>
-        <p>Local control for account sessions and the private publication queue. API status here does not represent worker or TikTok health.</p>
+        <p>Local control for account sessions and the TikTok publication queue. Private is the default; public is explicit per job. API status here does not represent worker or TikTok health.</p>
       </div>
       <div class="intro-actions">
         {#if workspace === "jobs"}

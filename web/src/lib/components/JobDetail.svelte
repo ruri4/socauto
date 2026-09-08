@@ -1,6 +1,6 @@
 <script lang="ts">
   import { api, errorMessage } from "../api";
-  import { accountName, formatDate, isActiveJob } from "../format";
+  import { accountName, formatDate, isActiveJob, visibilityLabel } from "../format";
   import type { Account, Job } from "../types";
   import StatusChip from "./StatusChip.svelte";
   import UnknownOutcomeDialog from "./UnknownOutcomeDialog.svelte";
@@ -146,6 +146,10 @@
         <div>
           <dt>Destination platform</dt>
           <dd>{job.destination_platform}</dd>
+        </div>
+        <div>
+          <dt>Visibility</dt>
+          <dd>{visibilityLabel(job.visibility)}</dd>
         </div>
         <div>
           <dt>Destination</dt>

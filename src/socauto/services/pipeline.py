@@ -2,6 +2,7 @@
 
 import logging
 from collections.abc import Callable
+from typing import Literal
 from uuid import uuid4
 
 from sqlalchemy import Engine
@@ -9,7 +10,7 @@ from sqlmodel import Session, select
 
 from socauto.config import Settings
 from socauto.db.claims import LostClaimError, finish_claim
-from socauto.db.models import Account, Job, JobState, Media
+from socauto.db.models import Account, Job, JobState, JobVisibility, Media
 from socauto.db.models.account import AccountStatus
 from socauto.destinations.base import Destination, PublishError
 from socauto.destinations.tiktok.session import TikTokSessionError, TikTokSessionStore
@@ -22,6 +23,14 @@ from socauto.sources.x_types import XSourceError
 
 logger = logging.getLogger(__name__)
 DestinationFactory = Callable[[Account], Destination]
+
+
+def _tiktok_visibility(visibility: JobVisibility) -> Literal[0, 1]:
+    if visibility is JobVisibility.PRIVATE:
+        return 1
+    if visibility is JobVisibility.PUBLIC:
+        return 0
+    raise PublishError("invalid_job_visibility")
 
 
 class Pipeline:
@@ -112,7 +121,7 @@ class Pipeline:
         result = destination.publish(
             path,
             job.resolved_caption,
-            visibility=1,
+            visibility=_tiktok_visibility(job.visibility),
             before_publish=lease.check,
         )
         with Session(self.engine) as session:

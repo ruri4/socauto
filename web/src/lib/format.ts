@@ -1,5 +1,5 @@
 import { ApiError } from "./api";
-import type { Account, AccountStatus, Job, JobState } from "./types";
+import type { Account, AccountStatus, Job, JobState, JobVisibility } from "./types";
 
 const labels: Record<string, string> = {
   active: "Active",
@@ -13,8 +13,17 @@ const labels: Record<string, string> = {
   uploading: "Uploading",
 };
 
+const visibilityLabels: Record<JobVisibility, string> = {
+  private: "Only you",
+  public: "Public",
+};
+
 export function statusLabel(status: AccountStatus | JobState): string {
   return labels[status] ?? status.replaceAll("_", " ");
+}
+
+export function visibilityLabel(visibility: JobVisibility): string {
+  return visibilityLabels[visibility];
 }
 
 export function formatDate(value: string | null): string {

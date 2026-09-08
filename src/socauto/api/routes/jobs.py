@@ -73,13 +73,14 @@ def _job_errors() -> Iterator[None]:
 
 @router.post("", response_model=JobResponse, status_code=202)
 def create(request: JobCreate, response: Response, db: Database) -> JobResponse:
-    """Queue one X video for private TikTok publication. No upstream work runs in this request."""
+    """Queue one X video with its selected TikTok visibility."""
     with _job_errors():
         job = submit_job(
             db,
             source_url=request.source_url,
             destination_account_id=request.destination_account_id,
             caption_override=request.caption_override,
+            visibility=request.visibility,
         )
     response.headers["Location"] = f"/v1/jobs/{job.id}"
     return JobResponse.model_validate(job)

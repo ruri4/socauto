@@ -26,14 +26,19 @@ def job_api(account_client: ClientContext) -> Iterator[tuple[ClientContext, str]
     yield account_client, account_id
 
 
-def submit(client: TestClient, account_id: str, tweet: int = 123) -> str:
-    response = client.post(
-        "/v1/jobs",
-        json={
-            "source_url": f"https://twitter.com/u/status/{tweet}?s=20",
-            "destination_account_id": account_id,
-        },
-    )
+def submit(
+    client: TestClient,
+    account_id: str,
+    tweet: int = 123,
+    visibility: str | None = None,
+) -> str:
+    body: dict[str, object] = {
+        "source_url": f"https://twitter.com/u/status/{tweet}?s=20",
+        "destination_account_id": account_id,
+    }
+    if visibility is not None:
+        body["visibility"] = visibility
+    response = client.post("/v1/jobs", json=body)
     assert response.status_code == 202
     job_id = str(response.json()["id"])
     assert response.headers["location"] == f"/v1/jobs/{job_id}"
@@ -57,6 +62,7 @@ def test_submission_detail_deduplication_and_history(job_api: tuple[ClientContex
     assert job["state"] == "pending"
     assert job["canonical_url"] == "https://x.com/i/status/123"
     assert job["caption_override"] is None
+    assert job["visibility"] == "private"
     assert job["created_at"].endswith("Z")
     assert not {"worker_id", "lease_expires_at", "session_file", "error_message"} & job.keys()
     assert client.delete(f"/v1/jobs/{job_id}").status_code == 200
@@ -75,6 +81,16 @@ def test_submission_detail_deduplication_and_history(job_api: tuple[ClientContex
     assert client.delete(f"/v1/accounts/{account_id}").status_code == 409
     other_id = str(import_account(client, "70002")["id"])
     assert submit(client, other_id) != job_id
+
+
+def test_public_visibility_is_persisted_in_detail_and_listing(
+    job_api: tuple[ClientContext, str],
+) -> None:
+    (client, _, _), account_id = job_api
+    job_id = submit(client, account_id, visibility="public")
+
+    assert client.get(f"/v1/jobs/{job_id}").json()["visibility"] == "public"
+    assert client.get("/v1/jobs").json()["items"][0]["visibility"] == "public"
 
 
 def test_paginated_filtered_listing(job_api: tuple[ClientContext, str]) -> None:
@@ -103,6 +119,10 @@ def test_paginated_filtered_listing(job_api: tuple[ClientContext, str]) -> None:
         {"caption_override": "\ud800"},
         {"caption_override": 123},
         {"visibility": 0},
+        {"visibility": True},
+        {"visibility": False},
+        {"visibility": None},
+        {"visibility": "friends"},
     ],
 )
 def test_create_validation(job_api: tuple[ClientContext, str], payload: dict[str, object]) -> None:
@@ -196,10 +216,13 @@ def test_not_found_and_invalid_ids(job_api: tuple[ClientContext, str]) -> None:
         assert client.request(method, f"/v1/jobs/not-a-uuid{suffix}").status_code == 422
 
 
+@pytest.mark.parametrize("visibility, adapter_visibility", [("private", 1), ("public", 0)])
 @pytest.mark.parametrize("caption", [None, "", "😀" * 1100])
 def test_api_worker_retry_and_publication(
     job_api: tuple[ClientContext, str],
     caption: str | None,
+    visibility: str,
+    adapter_visibility: int,
 ) -> None:
     (client, settings, engine), account_id = job_api
     response = client.post(
@@ -208,6 +231,7 @@ def test_api_worker_retry_and_publication(
             "source_url": "https://x.com/u/status/1",
             "destination_account_id": account_id,
             "caption_override": caption,
+            "visibility": visibility,
         },
     )
     assert response.status_code == 202
@@ -226,15 +250,20 @@ def test_api_worker_retry_and_publication(
     retry = client.post(f"{endpoint}/retry", json={"acknowledge_duplicate_risk": True})
     assert retry.status_code == 202
     assert retry.json()["state"] == "downloaded"
+    assert retry.json()["visibility"] == visibility
     destination.error = None
     assert worker.run_once()
     job = client.get(endpoint).json()
     assert job["state"] == "posted"
+    assert job["visibility"] == visibility
     assert job["creation_id"] == "project-1"
     assert job["post_id"] == "123" and job["posted_url"] is None
     assert job["attempt_count"] == 2
     assert source.calls == 1
-    assert destination.calls[-1][1:] == ("tweet caption" if caption is None else caption, 1)
+    assert destination.calls[-1][1:] == (
+        "tweet caption" if caption is None else caption,
+        adapter_visibility,
+    )
     assert not destination.calls[-1][0].exists()
 
 

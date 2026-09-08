@@ -1,7 +1,7 @@
 <script lang="ts">
   import { api, ApiError, errorMessage } from "../api";
   import { accountName, utf16CodeUnits } from "../format";
-  import type { Account, Job } from "../types";
+  import type { Account, Job, JobVisibility } from "../types";
 
   let {
     open = false,
@@ -22,6 +22,7 @@
   let dialog: HTMLDialogElement;
   let sourceUrl = $state("");
   let accountId = $state("");
+  let visibility = $state<JobVisibility>("private");
   let captionMode = $state<"source" | "override">("source");
   let caption = $state("");
   let submitting = $state(false);
@@ -39,6 +40,7 @@
   function reset(): void {
     sourceUrl = "";
     accountId = activeAccounts[0]?.id ?? "";
+    visibility = "private";
     captionMode = "source";
     caption = "";
     submitting = false;
@@ -89,6 +91,7 @@
         source_url: sourceUrl.trim(),
         destination_account_id: accountId,
         caption_override: captionMode === "source" ? null : caption,
+        visibility,
       });
       oncreated(job);
     } catch (caught) {
@@ -111,7 +114,7 @@
   <div class="dialog-inner">
     <div class="dialog-heading">
       <h2 id="create-job-title">Create job</h2>
-      <p>Queue one X video for private-only TikTok publication. The separate worker handles media work.</p>
+      <p>Queue one X video for the selected TikTok visibility. Private is the default; public can be viewed by anyone. The separate worker handles media work.</p>
     </div>
 
     {#if error}
@@ -158,6 +161,15 @@
               <option value={account.id}>{accountName(account)}</option>
             {/each}
           </select>
+        </div>
+
+        <div class="field">
+          <label for="visibility">TikTok visibility</label>
+          <select id="visibility" bind:value={visibility} aria-describedby="visibility-help" disabled={submitting}>
+            <option value="private">Only you (private)</option>
+            <option value="public">Public</option>
+          </select>
+          <p id="visibility-help" class="field-help">Private is the default. Public can be viewed by anyone.</p>
         </div>
 
         <fieldset class="caption-fieldset">

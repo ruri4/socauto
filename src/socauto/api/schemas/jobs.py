@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from socauto.db.models.job import DestinationPlatform, JobState, SourcePlatform
+from socauto.db.models.job import DestinationPlatform, JobState, JobVisibility, SourcePlatform
 from socauto.sources.x import canonicalize_x_url
 
 
@@ -15,6 +15,7 @@ class JobCreate(BaseModel):
     source_url: str = Field(min_length=1, max_length=2048)
     destination_account_id: UUID
     caption_override: str | None = Field(default=None, max_length=2200)
+    visibility: JobVisibility = Field(default=JobVisibility.PRIVATE)
 
     @field_validator("source_url")
     @classmethod
@@ -29,6 +30,16 @@ class JobCreate(BaseModel):
         if value is not None and len(value.encode("utf-16-le")) // 2 > 2200:
             raise ValueError("caption exceeds 2200 UTF-16 code units")
         return value
+
+    @field_validator("visibility", mode="before")
+    @classmethod
+    def strict_visibility(cls, value: object) -> JobVisibility:
+        if not isinstance(value, str):
+            raise ValueError("visibility must be private or public")
+        try:
+            return JobVisibility(value)
+        except ValueError:
+            raise ValueError("visibility must be private or public") from None
 
 
 class JobRetry(BaseModel):
@@ -48,6 +59,7 @@ class JobResponse(BaseModel):
     destination_account_id: UUID
     caption_override: str | None
     resolved_caption: str | None
+    visibility: JobVisibility
     state: JobState = Field(description="posted means acknowledged, not confirmed visibility")
     attempt_count: int
     cancel_requested_at: datetime | None

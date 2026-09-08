@@ -74,8 +74,9 @@ bun run --cwd web preview
 
 The panel only reports API online/offline status. It does not claim that the worker or TikTok is
 healthy. Cookie files are sensitive credentials, are submitted only for verification, and are not
-retained by the API or read and logged by the panel. Job publication is private-only, and `posted`
-means the API acknowledged the request, not that the post is confirmed visible.
+retained by the API or read and logged by the panel. Job publication defaults to private (`Only you`);
+public visibility is an explicit per-job choice. `posted` means the API acknowledged the request, not
+that the post is confirmed visible.
 
 To connect TikTok, export `tiktok.com` cookies from an already authenticated browser as Netscape
 cookie text, a browser-extension JSON array, or a JSON object containing a `cookies` array. Upload
@@ -118,7 +119,8 @@ Connect an account, then submit a job with `POST /v1/jobs`:
 {
   "source_url": "https://x.com/example/status/123456789",
   "destination_account_id": "00000000-0000-0000-0000-000000000000",
-  "caption_override": null
+  "caption_override": null,
+  "visibility": "private"
 }
 ```
 
@@ -126,7 +128,8 @@ Replace the account UUID with the ID returned by import or `GET /v1/accounts`.
 The response is `202 Accepted` with a job snapshot and a `Location: /v1/jobs/<id>` header.
 Submission only writes to SQLite; the separate worker performs downloads and uploads.
 Omitted/null captions use tweet text; an empty string explicitly clears the caption. Overrides
-are limited to 2200 UTF-16 code units. Publication through the worker is **private-only**.
+are limited to 2200 UTF-16 code units. `visibility` is optional and defaults to `private` (`Only you`);
+set it to `public` explicitly when the post should be viewable by anyone.
 
 | Endpoint | Behavior |
 | --- | --- |
@@ -188,7 +191,8 @@ uv run python -m socauto.worker
 ```
 
 The worker consumes database jobs submitted through the API. There is no user-facing CLI.
-Worker publication is private-only for now.
+The worker publishes each job with its persisted visibility. Private (`Only you`) is the default;
+public visibility must be selected explicitly when the job is created.
 
 - Each claim executes one stage: `pending -> downloading -> downloaded`, then
   `downloaded -> uploading -> posted | failed`. The resolved caption survives restarts and retries.

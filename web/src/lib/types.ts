@@ -42,6 +42,9 @@ export const JOB_STATES = [
 ] as const;
 export type JobState = (typeof JOB_STATES)[number];
 
+export const JOB_VISIBILITIES = ["private", "public"] as const;
+export type JobVisibility = (typeof JOB_VISIBILITIES)[number];
+
 export interface Job {
   id: string;
   source_url: string;
@@ -51,6 +54,7 @@ export interface Job {
   destination_account_id: string;
   caption_override: string | null;
   resolved_caption: string | null;
+  visibility: JobVisibility;
   state: JobState;
   attempt_count: number;
   cancel_requested_at: string | null;
@@ -84,6 +88,7 @@ export interface JobCreateInput {
   source_url: string;
   destination_account_id: string;
   caption_override: string | null;
+  visibility: JobVisibility;
 }
 
 export interface JobRetryInput {

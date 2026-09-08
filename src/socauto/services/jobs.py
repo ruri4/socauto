@@ -7,7 +7,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
 
 from socauto.db.jobs import create_job, retry_failed_job
-from socauto.db.models import Account, AccountPlatform, AccountStatus, Job, JobState
+from socauto.db.models import (
+    Account,
+    AccountPlatform,
+    AccountStatus,
+    Job,
+    JobState,
+    JobVisibility,
+)
 from socauto.services.accounts import AccountNotFoundError
 
 
@@ -39,7 +46,12 @@ def _active_account(db: Session, account_id: UUID) -> None:
 
 
 def submit_job(
-    db: Session, *, source_url: str, destination_account_id: UUID, caption_override: str | None
+    db: Session,
+    *,
+    source_url: str,
+    destination_account_id: UUID,
+    caption_override: str | None,
+    visibility: JobVisibility = JobVisibility.PRIVATE,
 ) -> Job:
     _active_account(db, destination_account_id)
     try:
@@ -48,6 +60,7 @@ def submit_job(
             source_url=source_url,
             destination_account_id=destination_account_id,
             caption_override=caption_override,
+            visibility=visibility,
         )
     except IntegrityError:
         # create_job rolled back; account deletion can race submission.

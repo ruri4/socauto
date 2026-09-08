@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { accountName, formatDate } from "../format";
+  import { accountName, formatDate, visibilityLabel } from "../format";
   import type { Account, Job, JobFilters, JobState } from "../types";
   import StatusChip from "./StatusChip.svelte";
 
@@ -73,7 +73,7 @@
   <div class="section-heading">
     <div>
       <h2 id="jobs-heading">Jobs</h2>
-      <p>Queue, review, and control private TikTok publications.</p>
+      <p>Queue, review, and control TikTok publications. Private is the default; public is explicit per job.</p>
     </div>
     <div class="heading-actions">
       <button class="button button-small" type="button" disabled={loading} onclick={onrefresh}>
@@ -150,6 +150,7 @@
           <div class="job-main">
             <div class="row-topline">
               <StatusChip status={job.state} />
+              <span class="row-visibility">{visibilityLabel(job.visibility)}</span>
               <span class="row-time">Updated {formatDate(job.updated_at)}</span>
             </div>
             <a class="source-link" href={job.source_url} target="_blank" rel="noreferrer">{job.canonical_url}</a>
@@ -234,10 +235,19 @@
     gap: 9px;
   }
 
+  .row-topline {
+    flex-wrap: wrap;
+  }
+
   .row-time,
-  .attempt-count {
+  .attempt-count,
+  .row-visibility {
     color: var(--muted);
     font-size: 12px;
+  }
+
+  .row-visibility {
+    font-weight: 650;
   }
 
   .source-link {

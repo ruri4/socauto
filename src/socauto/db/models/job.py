@@ -29,6 +29,11 @@ class JobState(StrEnum):
     CANCELLED = "cancelled"
 
 
+class JobVisibility(StrEnum):
+    PRIVATE = "private"
+    PUBLIC = "public"
+
+
 class Job(SQLModel, table=True):
     __tablename__: ClassVar[str] = "jobs"
     __table_args__ = (
@@ -82,6 +87,19 @@ class Job(SQLModel, table=True):
             ),
             nullable=False,
             server_default=JobState.PENDING.value,
+        ),
+    )
+    visibility: JobVisibility = Field(
+        default=JobVisibility.PRIVATE,
+        sa_column=Column(
+            Enum(
+                JobVisibility,
+                name="job_visibility",
+                native_enum=False,
+                values_callable=lambda items: [item.value for item in items],
+            ),
+            nullable=False,
+            server_default=JobVisibility.PRIVATE.value,
         ),
     )
     attempt_count: int = Field(default=0, ge=0)

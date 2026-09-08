@@ -18,7 +18,7 @@ from socauto.db.jobs import (
     retry_failed_job,
     transition_job,
 )
-from socauto.db.models import Account, Job, JobState, Media
+from socauto.db.models import Account, Job, JobState, JobVisibility, Media
 from socauto.db.types import utc_now
 
 
@@ -212,7 +212,11 @@ def test_worker_migration_preserves_existing_jobs(
         command.upgrade(config, "head")
         with Session(database) as session:
             job = session.exec(select(Job)).one()
-            assert job.state is JobState.PENDING and job.resolved_caption is None
+            assert (
+                job.state is JobState.PENDING
+                and job.visibility is JobVisibility.PRIVATE
+                and job.resolved_caption is None
+            )
         command.downgrade(config, "0001_initial")
         command.upgrade(config, "head")
         command.check(config)
