@@ -26,6 +26,7 @@ def main() -> int:
         f"--user-data-dir={profile}",
         "--no-first-run",
         "--no-default-browser-check",
+        "--force-device-scale-factor=1.5",
         "https://www.tiktok.com/login",
     ]
     if args.background:
