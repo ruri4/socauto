@@ -1,0 +1,87 @@
+name: socauto
+
+x-backend-environment: &backend-environment
+  SOCAUTO_DATA_DIR: /app/data
+  SOCAUTO_LOG_LEVEL: ${SOCAUTO_LOG_LEVEL:-INFO}
+  SOCAUTO_WORKER_POLL_SECONDS: ${SOCAUTO_WORKER_POLL_SECONDS:-2}
+  SOCAUTO_WORKER_LEASE_SECONDS: ${SOCAUTO_WORKER_LEASE_SECONDS:-300}
+  SOCAUTO_TIKTOK_CHROMIUM_BINARY: /usr/bin/chromium
+  SOCAUTO_TIKTOK_BROWSER_PROFILE_DIR: /app/data/tiktok-browser-profile
+  SOCAUTO_TIKTOK_SIGNER_SCRIPT: /app/signer/tiktok/sign.js
+  SOCAUTO_TIKTOK_SIGNER_TIMEOUT_SECONDS: ${SOCAUTO_TIKTOK_SIGNER_TIMEOUT_SECONDS:-45}
+  SOCAUTO_TIKTOK_HTTP_IMPERSONATE: ${SOCAUTO_TIKTOK_HTTP_IMPERSONATE:-chrome}
+  SOCAUTO_TIKTOK_HTTP_TIMEOUT_SECONDS: ${SOCAUTO_TIKTOK_HTTP_TIMEOUT_SECONDS:-30}
+  SOCAUTO_TIKTOK_HTTP_ATTEMPTS: ${SOCAUTO_TIKTOK_HTTP_ATTEMPTS:-3}
+
+x-backend-volume: &backend-volume
+  type: volume
+  source: socauto-data
+  target: /app/data
+
+services:
+  migrate:
+    image: socauto-backend:local
+    build:
+      context: .
+      target: backend
+    environment: *backend-environment
+    volumes:
+      - *backend-volume
+    command: ["alembic", "upgrade", "head"]
+
+  api:
+    image: socauto-backend:local
+    init: true
+    restart: unless-stopped
+    environment: *backend-environment
+    volumes:
+      - *backend-volume
+    command: ["uvicorn", "socauto.app:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+    stop_grace_period: 30s
+
+  worker:
+    image: socauto-backend:local
+    init: true
+    restart: unless-stopped
+    environment: *backend-environment
+    volumes:
+      - *backend-volume
+    command: ["python", "-m", "socauto.worker"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    stop_grace_period: 2m
+
+  web:
+    image: socauto-web:local
+    build:
+      context: .
+      target: web
+    init: true
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+    stop_grace_period: 15s
+
+volumes:
+  socauto-data:
