@@ -10,11 +10,12 @@ from sqlmodel import Session, select
 
 from socauto.config import Settings
 from socauto.db.claims import LostClaimError, finish_claim
-from socauto.db.models import Account, Job, JobState, JobVisibility, Media
+from socauto.db.models import Account, Job, JobCaptionMode, JobState, JobVisibility, Media
 from socauto.db.models.account import AccountStatus
 from socauto.destinations.base import Destination, PublishError
 from socauto.destinations.tiktok.session import TikTokSessionError, TikTokSessionStore
 from socauto.destinations.tiktok.uploader import TikTokDestination
+from socauto.services.caption_templates import CaptionTemplateError, render_template
 from socauto.services.lease import Lease
 from socauto.services.media import validate_media
 from socauto.sources.base import Source
@@ -61,7 +62,7 @@ class Pipeline:
                         self._upload(job, lease)
                     else:
                         raise ValueError("pipeline requires an active job claim")
-                except (XSourceError, PublishError) as error:
+                except (CaptionTemplateError, XSourceError, PublishError) as error:
                     self._fail(job, error.code)
                 except TikTokSessionError:
                     self._fail(job, "tiktok_session_invalid")
@@ -84,8 +85,15 @@ class Pipeline:
             job.canonical_url,
             job_id=job.id,
             attempt_id=uuid4(),
-            caption_override=job.caption_override,
+            caption_override=(
+                job.caption_override if job.caption_mode is JobCaptionMode.OVERRIDE else None
+            ),
         )
+        caption = downloaded.caption
+        if job.caption_mode in {JobCaptionMode.SAVED_TEMPLATE, JobCaptionMode.CUSTOM_TEMPLATE}:
+            if job.caption_template_body_snapshot is None:
+                raise CaptionTemplateError("caption_template_invalid")
+            caption = render_template(job.caption_template_body_snapshot, downloaded.caption)
         media = Media(
             job_id=job.id,
             path=str(downloaded.path.absolute()),
@@ -98,7 +106,7 @@ class Pipeline:
         )
         validate_media(self.settings, media)
         with Session(self.engine) as session:
-            finish_claim(session, job, JobState.DOWNLOADED, media=media, caption=downloaded.caption)
+            finish_claim(session, job, JobState.DOWNLOADED, media=media, caption=caption)
         logger.info("job %s download finished", job.id)
 
     def _upload(self, job: Job, lease: Lease) -> None:

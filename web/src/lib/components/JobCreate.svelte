@@ -1,7 +1,7 @@
 <script lang="ts">
   import { api, ApiError, errorMessage } from "../api";
   import { accountName, utf16CodeUnits } from "../format";
-  import type { Account, Job, JobVisibility } from "../types";
+  import type { Account, CaptionMode, CaptionTemplate, Job, JobVisibility } from "../types";
 
   let {
     open = false,
@@ -23,8 +23,13 @@
   let sourceUrl = $state("");
   let accountId = $state("");
   let visibility = $state<JobVisibility>("private");
-  let captionMode = $state<"source" | "override">("source");
-  let caption = $state("");
+  let captionMode = $state<CaptionMode>("source");
+  let overrideCaption = $state("");
+  let customTemplate = $state("");
+  let templates = $state<CaptionTemplate[]>([]);
+  let templatesLoading = $state(false);
+  let templatesError = $state<string | null>(null);
+  let templateId = $state("");
   let submitting = $state(false);
   let error = $state<string | null>(null);
   let duplicateJobId = $state<string | null>(null);
@@ -34,15 +39,22 @@
   const activeAccounts = $derived(
     accounts.filter((account: Account) => account.status === "active"),
   );
-  const captionCodeUnits = $derived(utf16CodeUnits(caption));
-  const captionTooLong = $derived(captionCodeUnits > 2200);
+  const overrideCaptionCodeUnits = $derived(utf16CodeUnits(overrideCaption));
+  const customTemplateCodeUnits = $derived(utf16CodeUnits(customTemplate));
+  const captionTooLong = $derived(
+    (captionMode === "override" && overrideCaptionCodeUnits > 2200) ||
+      (captionMode === "custom_template" && customTemplateCodeUnits > 2200),
+  );
+  const selectedTemplate = $derived(templates.find((template) => template.id === templateId));
 
   function reset(): void {
     sourceUrl = "";
     accountId = activeAccounts[0]?.id ?? "";
     visibility = "private";
     captionMode = "source";
-    caption = "";
+    overrideCaption = "";
+    customTemplate = "";
+    templateId = "";
     submitting = false;
     error = null;
     duplicateJobId = null;
@@ -69,6 +81,19 @@
 
   $effect(showDialog);
 
+  $effect(() => {
+    if (!open) return;
+    templatesLoading = true;
+    templatesError = null;
+    void api.listTemplates().then(
+      (page) => {
+        templates = page.items;
+        if (!templateId) templateId = page.items[0]?.id ?? "";
+      },
+      (caught: unknown) => (templatesError = errorMessage(caught)),
+    ).finally(() => (templatesLoading = false));
+  });
+
   async function createJob(): Promise<void> {
     error = null;
     duplicateJobId = null;
@@ -84,13 +109,20 @@
       error = "The caption exceeds 2,200 UTF-16 code units.";
       return;
     }
+    if (captionMode === "saved_template" && !templateId) {
+      error = "Select a saved template or create one in Templates.";
+      return;
+    }
 
     submitting = true;
     try {
       const job = await api.createJob({
         source_url: sourceUrl.trim(),
         destination_account_id: accountId,
-        caption_override: captionMode === "source" ? null : caption,
+        caption_override: captionMode === "override" ? overrideCaption : null,
+        caption_mode: captionMode,
+        caption_template_id: captionMode === "saved_template" ? templateId : null,
+        caption_template: captionMode === "custom_template" ? customTemplate : null,
         visibility,
       });
       oncreated(job);
@@ -182,6 +214,14 @@
             <input type="radio" bind:group={captionMode} value="override" disabled={submitting} />
             <span>Use an override, including an intentionally blank caption</span>
           </label>
+          <label class="choice-row">
+            <input type="radio" bind:group={captionMode} value="saved_template" disabled={submitting} />
+            <span>Use a saved template</span>
+          </label>
+          <label class="choice-row">
+            <input type="radio" bind:group={captionMode} value="custom_template" disabled={submitting} />
+            <span>Use a one-off custom template</span>
+          </label>
         </fieldset>
 
         {#if captionMode === "override"}
@@ -189,15 +229,44 @@
             <label for="caption">Caption override</label>
             <textarea
               id="caption"
-              bind:value={caption}
-              aria-invalid={captionTooLong}
+              bind:value={overrideCaption}
+              aria-invalid={overrideCaptionCodeUnits > 2200}
               disabled={submitting}
               placeholder="Leave blank to publish without a caption"
             ></textarea>
-            <p class:over-limit={captionTooLong} class="field-help caption-count">
-              {captionCodeUnits.toLocaleString()} / 2,200 UTF-16 code units
+            <p class:over-limit={overrideCaptionCodeUnits > 2200} class="field-help caption-count">
+              {overrideCaptionCodeUnits.toLocaleString()} / 2,200 UTF-16 code units
             </p>
           </div>
+        {/if}
+
+        {#if captionMode === "saved_template"}
+          <div class="field">
+            <label for="saved-template">Saved template</label>
+            {#if templatesLoading}
+              <p class="field-help">Loading saved templates.</p>
+            {:else if templatesError}
+              <p class="text-danger field-help">{templatesError}</p>
+            {:else if templates.length === 0}
+              <p class="field-help">No saved templates. Open Templates in the panel to create one.</p>
+            {:else}
+              <select id="saved-template" bind:value={templateId} disabled={submitting} required>
+                {#each templates as template}
+                  <option value={template.id}>{template.name}</option>
+                {/each}
+              </select>
+              <p class="template-preview">{selectedTemplate?.body ?? ""}</p>
+            {/if}
+          </div>
+        {:else if captionMode === "custom_template"}
+          <div class="field">
+            <label for="custom-template">Custom template</label>
+            <textarea id="custom-template" bind:value={customTemplate} aria-invalid={customTemplateCodeUnits > 2200} disabled={submitting}></textarea>
+            <p class:over-limit={customTemplateCodeUnits > 2200} class="field-help caption-count">{customTemplateCodeUnits.toLocaleString()} / 2,200 UTF-16 code units</p>
+          </div>
+        {/if}
+        {#if captionMode === "saved_template" || captionMode === "custom_template"}
+          <p class="field-help">Use exact <code>{"{{caption}}"}</code> to insert the normalized X caption. Other double braces are invalid; custom templates are not saved.</p>
         {/if}
 
         <div class="dialog-actions">
@@ -256,5 +325,14 @@
 
   .compact-empty {
     padding: 24px 0 8px;
+  }
+
+  .template-preview {
+    margin: 0;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px;
+    background: var(--surface-soft);
+    white-space: pre-wrap;
   }
 </style>

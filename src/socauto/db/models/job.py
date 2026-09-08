@@ -34,6 +34,13 @@ class JobVisibility(StrEnum):
     PUBLIC = "public"
 
 
+class JobCaptionMode(StrEnum):
+    SOURCE = "source"
+    OVERRIDE = "override"
+    SAVED_TEMPLATE = "saved_template"
+    CUSTOM_TEMPLATE = "custom_template"
+
+
 class Job(SQLModel, table=True):
     __tablename__: ClassVar[str] = "jobs"
     __table_args__ = (
@@ -75,6 +82,24 @@ class Job(SQLModel, table=True):
         ondelete="RESTRICT",
     )
     caption_override: str | None = Field(default=None, max_length=2200)
+    caption_mode: JobCaptionMode = Field(
+        default=JobCaptionMode.SOURCE,
+        sa_column=Column(
+            Enum(
+                JobCaptionMode,
+                name="job_caption_mode",
+                native_enum=False,
+                values_callable=lambda items: [item.value for item in items],
+            ),
+            nullable=False,
+            server_default=JobCaptionMode.SOURCE.value,
+        ),
+    )
+    caption_template_id: UUID | None = Field(
+        default=None, foreign_key="caption_templates.id", ondelete="SET NULL"
+    )
+    caption_template_name_snapshot: str | None = Field(default=None, max_length=80)
+    caption_template_body_snapshot: str | None = Field(default=None, max_length=2200)
     resolved_caption: str | None = None
     state: JobState = Field(
         default=JobState.PENDING,

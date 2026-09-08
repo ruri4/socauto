@@ -74,9 +74,10 @@ bun run --cwd web preview
 
 The panel only reports API online/offline status. It does not claim that the worker or TikTok is
 healthy. Cookie files are sensitive credentials, are submitted only for verification, and are not
-retained by the API or read and logged by the panel. Job publication defaults to private (`Only you`);
-public visibility is an explicit per-job choice. `posted` means the API acknowledged the request, not
-that the post is confirmed visible.
+retained by the API or read and logged by the panel. Its Templates workspace creates, edits, and
+deletes reusable local caption templates. Job publication defaults to private (`Only you`); public
+visibility is an explicit per-job choice. `posted` means the API acknowledged the request, not that
+the post is confirmed visible.
 
 To connect TikTok, export `tiktok.com` cookies from an already authenticated browser as Netscape
 cookie text, a browser-extension JSON array, or a JSON object containing a `cookies` array. Upload
@@ -119,17 +120,28 @@ Connect an account, then submit a job with `POST /v1/jobs`:
 {
   "source_url": "https://x.com/example/status/123456789",
   "destination_account_id": "00000000-0000-0000-0000-000000000000",
-  "caption_override": null,
+  "caption_mode": "source",
   "visibility": "private"
 }
 ```
 
 Replace the account UUID with the ID returned by import or `GET /v1/accounts`.
 The response is `202 Accepted` with a job snapshot and a `Location: /v1/jobs/<id>` header.
-Submission only writes to SQLite; the separate worker performs downloads and uploads.
-Omitted/null captions use tweet text; an empty string explicitly clears the caption. Overrides
-are limited to 2200 UTF-16 code units. `visibility` is optional and defaults to `private` (`Only you`);
-set it to `public` explicitly when the post should be viewable by anyone.
+Submission only writes to SQLite; the separate worker performs downloads and uploads. Caption modes
+are `source` (normalized X text), `override` (required `caption_override`, including `""`),
+`saved_template` (required `caption_template_id`), and `custom_template` (required
+`caption_template`, including `""`). For compatibility, omitting `caption_mode` infers `override`
+when `caption_override` is non-null and `source` otherwise. Template inputs require an explicit
+template mode. Captions and templates are limited to 2200 UTF-16 code units.
+
+Templates only recognize exact `{{caption}}`, which is replaced literally and non-recursively with
+the normalized X source caption. Repeated placeholders and templates with no placeholder work;
+single braces are literal. Unknown placeholders, whitespace variants such as `{{ caption }}`, and
+unmatched double braces are invalid. Template whitespace and newlines are preserved. The rendered
+caption must also fit 2200 UTF-16 code units. Saved-template jobs atomically snapshot the template
+name and body on the job. Editing or deleting a saved template never changes queued jobs, history,
+or retries; deletion can clear only the live template reference. Custom templates are snapshotted on
+their job and are never auto-saved.
 
 | Endpoint | Behavior |
 | --- | --- |
@@ -137,6 +149,8 @@ set it to `public` explicitly when the post should be viewable by anyone.
 | `GET /v1/jobs/{id}` | Current state, safe failure code, timestamps, caption, acknowledgement IDs |
 | `POST /v1/jobs/{id}/retry` | `202`; requeue a failed job, reusing retained media when available |
 | `DELETE /v1/jobs/{id}` | Cancel, not delete history: `200` immediately or `202` while a download drains |
+| `GET/POST /v1/caption-templates` | List newest-updated-first templates or create one; `offset=0`, `limit=50` (maximum 100) |
+| `GET/PATCH/DELETE /v1/caption-templates/{id}` | Read, update, or delete a reusable template |
 
 Listing supports optional `state` and `destination_account_id` filters; `total` counts the filtered
 results. Ordering is by creation time descending, then ID. Offset pages are not a frozen snapshot
@@ -196,6 +210,10 @@ public visibility must be selected explicitly when the job is created.
 
 - Each claim executes one stage: `pending -> downloading -> downloaded`, then
   `downloaded -> uploading -> posted | failed`. The resolved caption survives restarts and retries.
+- Template modes render after the X source caption is normalized and before `resolved_caption` is
+  persisted. The worker uses only that final resolved caption when retained media is retried. A
+  download retry reuses the job's immutable template snapshot, never the current saved template.
+  Invalid or oversized persisted template output is a normal failed-job condition, not a fallback.
 - Short SQLite transactions atomically claim jobs. A separate heartbeat renews the lease every
   third of `SOCAUTO_WORKER_LEASE_SECONDS` (default 300). Completion and renewal require the same
   unexpired claim; a stale worker cannot overwrite recovery or a replacement worker's result.

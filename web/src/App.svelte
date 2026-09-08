@@ -15,6 +15,7 @@
   import JobCreate from "./lib/components/JobCreate.svelte";
   import JobDetail from "./lib/components/JobDetail.svelte";
   import JobList from "./lib/components/JobList.svelte";
+  import Templates from "./lib/components/Templates.svelte";
 
   const pageSize = 50;
 
@@ -235,7 +236,7 @@
       <div class="intro-actions">
         {#if workspace === "jobs"}
           <button class="button button-primary" type="button" onclick={() => (createJobOpen = true)}>New job</button>
-        {:else}
+        {:else if workspace === "accounts"}
           <button class="button button-primary" type="button" onclick={() => (importAccountOpen = true)}>Import cookies</button>
         {/if}
       </div>
@@ -277,7 +278,7 @@
           onjobchanged={updateJob}
         />
       </div>
-    {:else}
+    {:else if workspace === "accounts"}
       <AccountList
         {accounts}
         total={accountsTotal}
@@ -291,6 +292,8 @@
         onnext={() => moveAccountsPage(1)}
       />
       <p class="security-callout">Cookie files are sensitive credentials. Import happens locally through the loopback API, the upload is not retained, and this panel never reads or logs cookie contents.</p>
+    {:else}
+      <Templates />
     {/if}
   </main>
 

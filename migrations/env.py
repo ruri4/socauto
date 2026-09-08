@@ -7,7 +7,7 @@ from sqlmodel import SQLModel
 
 from socauto.config import get_settings
 from socauto.db.engine import create_db_engine, database_url
-from socauto.db.models import Account, Job, Media  # noqa: F401
+from socauto.db.models import Account, CaptionTemplate, Job, Media  # noqa: F401
 
 config = context.config
 

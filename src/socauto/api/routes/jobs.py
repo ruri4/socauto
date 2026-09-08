@@ -17,6 +17,7 @@ from socauto.db.models import JobState
 from socauto.services.accounts import AccountNotFoundError
 from socauto.services.jobs import (
     AccountUnavailableError,
+    CaptionTemplateNotFoundError,
     JobNotFoundError,
     RetryConfirmationRequiredError,
     get_job,
@@ -48,6 +49,8 @@ def _job_errors() -> Iterator[None]:
         raise api_error(
             409, "account_unavailable", "An active TikTok account is required"
         ) from None
+    except CaptionTemplateNotFoundError:
+        raise api_error(404, "caption_template_not_found", "Caption template not found") from None
     except DuplicateJobError as error:
         raise api_error(
             409,
@@ -74,12 +77,16 @@ def _job_errors() -> Iterator[None]:
 @router.post("", response_model=JobResponse, status_code=202)
 def create(request: JobCreate, response: Response, db: Database) -> JobResponse:
     """Queue one X video with its selected TikTok visibility."""
+    assert request.caption_mode is not None
     with _job_errors():
         job = submit_job(
             db,
             source_url=request.source_url,
             destination_account_id=request.destination_account_id,
             caption_override=request.caption_override,
+            caption_mode=request.caption_mode,
+            caption_template_id=request.caption_template_id,
+            caption_template=request.caption_template,
             visibility=request.visibility,
         )
     response.headers["Location"] = f"/v1/jobs/{job.id}"

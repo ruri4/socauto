@@ -1,5 +1,5 @@
 <script lang="ts">
-  type Workspace = "jobs" | "accounts";
+  type Workspace = "jobs" | "accounts" | "templates";
 
   let {
     workspace,
@@ -40,6 +40,15 @@
       onclick={() => onworkspace("accounts")}
     >
       Accounts
+    </button>
+    <button
+      class:tab-active={workspace === "templates"}
+      class="nav-button"
+      type="button"
+      aria-current={workspace === "templates" ? "page" : undefined}
+      onclick={() => onworkspace("templates")}
+    >
+      Templates
     </button>
   </nav>
 

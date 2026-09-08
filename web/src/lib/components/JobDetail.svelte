@@ -160,8 +160,24 @@
           <dd><code>{job.destination_account_id}</code></dd>
         </div>
         <div>
+          <dt>Caption mode</dt>
+          <dd>{job.caption_mode.replace("_", " ")}</dd>
+        </div>
+        <div>
           <dt>Caption override</dt>
           <dd class="caption-value">{job.caption_override === null ? "Source caption" : job.caption_override === "" ? "Intentionally blank" : job.caption_override}</dd>
+        </div>
+        <div>
+          <dt>Template reference</dt>
+          <dd><code>{job.caption_template_id ?? "No saved template"}</code></dd>
+        </div>
+        <div>
+          <dt>Template snapshot name</dt>
+          <dd>{job.caption_template_name_snapshot ?? "Not applicable"}</dd>
+        </div>
+        <div>
+          <dt>Template snapshot body</dt>
+          <dd class="caption-value">{job.caption_template_body_snapshot ?? "Not applicable"}</dd>
         </div>
         <div>
           <dt>Resolved caption</dt>

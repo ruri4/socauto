@@ -10,7 +10,7 @@ from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
 
-from socauto.db.models import Job, JobState, JobVisibility, Media
+from socauto.db.models import Job, JobCaptionMode, JobState, JobVisibility, Media
 from socauto.db.types import utc_now
 from socauto.sources.x import canonicalize_x_url
 
@@ -57,6 +57,10 @@ def create_job(
     source_url: str,
     destination_account_id: UUID,
     caption_override: str | None = None,
+    caption_mode: JobCaptionMode = JobCaptionMode.SOURCE,
+    caption_template_id: UUID | None = None,
+    caption_template_name_snapshot: str | None = None,
+    caption_template_body_snapshot: str | None = None,
     visibility: JobVisibility = JobVisibility.PRIVATE,
 ) -> Job:
     job = Job(
@@ -64,6 +68,10 @@ def create_job(
         canonical_url=canonicalize_x_url(source_url),
         destination_account_id=destination_account_id,
         caption_override=caption_override,
+        caption_mode=caption_mode,
+        caption_template_id=caption_template_id,
+        caption_template_name_snapshot=caption_template_name_snapshot,
+        caption_template_body_snapshot=caption_template_body_snapshot,
         visibility=visibility,
     )
     session.add(job)

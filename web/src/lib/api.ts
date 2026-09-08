@@ -2,6 +2,7 @@ import type {
   Account,
   AccountImportResponse,
   AccountSessionResponse,
+  CaptionTemplate,
   HealthResponse,
   Job,
   JobCreateInput,
@@ -117,6 +118,20 @@ export const api = {
 
   deleteAccount: (id: string) =>
     request<void>(`/v1/accounts/${idPath(id)}`, { method: "DELETE" }),
+
+  listTemplates: (offset = 0, limit = 100) =>
+    request<Page<CaptionTemplate>>(`/v1/caption-templates?offset=${offset}&limit=${limit}`),
+
+  getTemplate: (id: string) => request<CaptionTemplate>(`/v1/caption-templates/${idPath(id)}`),
+
+  createTemplate: (input: Pick<CaptionTemplate, "name" | "body">) =>
+    request<CaptionTemplate>("/v1/caption-templates", { method: "POST", body: input }),
+
+  updateTemplate: (id: string, input: Partial<Pick<CaptionTemplate, "name" | "body">>) =>
+    request<CaptionTemplate>(`/v1/caption-templates/${idPath(id)}`, { method: "PATCH", body: input }),
+
+  deleteTemplate: (id: string) =>
+    request<void>(`/v1/caption-templates/${idPath(id)}`, { method: "DELETE" }),
 
   createJob: (input: JobCreateInput) =>
     request<Job>("/v1/jobs", { method: "POST", body: input }),

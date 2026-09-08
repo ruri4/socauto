@@ -11,7 +11,9 @@ from socauto.db.models import (
     Account,
     AccountPlatform,
     AccountStatus,
+    CaptionTemplate,
     Job,
+    JobCaptionMode,
     JobState,
     JobVisibility,
 )
@@ -28,6 +30,10 @@ class AccountUnavailableError(ValueError):
 
 class RetryConfirmationRequiredError(ValueError):
     """An uncertain publication must be reviewed before retrying."""
+
+
+class CaptionTemplateNotFoundError(LookupError):
+    """No saved caption template exists with this identifier."""
 
 
 def get_job(db: Session, job_id: UUID) -> Job:
@@ -51,15 +57,35 @@ def submit_job(
     source_url: str,
     destination_account_id: UUID,
     caption_override: str | None,
+    caption_mode: JobCaptionMode,
+    caption_template_id: UUID | None,
+    caption_template: str | None,
     visibility: JobVisibility = JobVisibility.PRIVATE,
 ) -> Job:
     _active_account(db, destination_account_id)
+    template = None
+    if caption_mode is JobCaptionMode.SAVED_TEMPLATE:
+        if caption_template_id is None:
+            raise ValueError("saved template ID is required")
+        template = db.get(CaptionTemplate, caption_template_id)
+        if template is None:
+            raise CaptionTemplateNotFoundError
     try:
         return create_job(
             db,
             source_url=source_url,
             destination_account_id=destination_account_id,
             caption_override=caption_override,
+            caption_mode=caption_mode,
+            caption_template_id=caption_template_id,
+            caption_template_name_snapshot=template.name if template is not None else None,
+            caption_template_body_snapshot=(
+                template.body
+                if template is not None
+                else caption_template
+                if caption_mode is JobCaptionMode.CUSTOM_TEMPLATE
+                else None
+            ),
             visibility=visibility,
         )
     except IntegrityError:

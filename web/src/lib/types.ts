@@ -45,6 +45,17 @@ export type JobState = (typeof JOB_STATES)[number];
 export const JOB_VISIBILITIES = ["private", "public"] as const;
 export type JobVisibility = (typeof JOB_VISIBILITIES)[number];
 
+export const CAPTION_MODES = ["source", "override", "saved_template", "custom_template"] as const;
+export type CaptionMode = (typeof CAPTION_MODES)[number];
+
+export interface CaptionTemplate {
+  id: string;
+  name: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Job {
   id: string;
   source_url: string;
@@ -53,6 +64,10 @@ export interface Job {
   destination_platform: "tiktok";
   destination_account_id: string;
   caption_override: string | null;
+  caption_mode: CaptionMode;
+  caption_template_id: string | null;
+  caption_template_name_snapshot: string | null;
+  caption_template_body_snapshot: string | null;
   resolved_caption: string | null;
   visibility: JobVisibility;
   state: JobState;
@@ -88,6 +103,9 @@ export interface JobCreateInput {
   source_url: string;
   destination_account_id: string;
   caption_override: string | null;
+  caption_mode: CaptionMode;
+  caption_template_id: string | null;
+  caption_template: string | null;
   visibility: JobVisibility;
 }
 
@@ -95,4 +113,4 @@ export interface JobRetryInput {
   acknowledge_duplicate_risk?: boolean;
 }
 
-export type Workspace = "jobs" | "accounts";
+export type Workspace = "jobs" | "accounts" | "templates";
