@@ -10,7 +10,7 @@ import pytest
 from yt_dlp.utils import DownloadError
 
 from socauto.config import Settings
-from socauto.sources.x import XSourceAdapter
+from socauto.sources.x import XSourceAdapter, _youtube_dl_factory
 from socauto.sources.x_output import output_path
 from socauto.sources.x_types import (
     XCookieFileError,
@@ -89,6 +89,11 @@ def adapter_with(
         ydl_factory=factory,
     )
     return adapter, factory
+
+
+def test_default_youtube_dl_factory_constructs_without_network() -> None:
+    with _youtube_dl_factory({"cachedir": False, "no_warnings": True, "quiet": True}) as downloader:
+        assert downloader is not None
 
 
 def test_inspect_extracts_single_video_metadata(tmp_path: Path) -> None:

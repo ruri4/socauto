@@ -110,7 +110,7 @@ class _QuietLogger:
 def _youtube_dl_factory(options: dict[str, object]) -> AbstractContextManager[_YoutubeDL]:
     return cast(
         AbstractContextManager[_YoutubeDL],
-        yt_dlp.YoutubeDL(cast(_Params, options)),
+        yt_dlp.YoutubeDL(cast("_Params", options)),
     )
 
 
