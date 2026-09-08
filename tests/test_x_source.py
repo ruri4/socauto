@@ -97,14 +97,14 @@ def test_default_youtube_dl_factory_constructs_without_network() -> None:
 
 
 def test_inspect_extracts_single_video_metadata(tmp_path: Path) -> None:
-    ydl = FakeYoutubeDL(video_info())
+    ydl = FakeYoutubeDL(video_info(description="Cyberpsychosis https://t.co/ILI2JeDk8G"))
     adapter, factory = adapter_with(tmp_path, ydl)
 
     metadata = adapter.inspect("https://twitter.com/user/status/123?ref=secret")
 
     assert metadata.canonical_url == "https://x.com/i/status/123"
     assert metadata.media_id == "media-123"
-    assert metadata.caption == "tweet caption https://t.co/media"
+    assert metadata.caption == "Cyberpsychosis"
     assert metadata.duration_seconds == 12.5
     assert (metadata.width, metadata.height) == (1080, 1920)
     assert metadata.video_codec == "avc1.640028"
@@ -134,12 +134,12 @@ def test_download_uses_private_controlled_mp4_and_override(
     result = adapter.download(
         "https://x.com/user/status/123",
         job_id=job_id,
-        caption_override="  custom caption  ",
+        caption_override="  custom caption https://t.co/override  ",
         attempt_id=attempt_id,
     )
 
     assert result.path == output
-    assert result.caption == "custom caption"
+    assert result.caption == "custom caption https://t.co/override"
     assert result.mime_type == "video/mp4"
     assert result.size_bytes == len(content)
     assert result.checksum_sha256 == sha256(content).hexdigest()
@@ -173,6 +173,45 @@ def test_download_uses_tweet_text_without_override(tmp_path: Path) -> None:
     result = adapter.download("https://x.com/user/status/123", job_id=job_id)
 
     assert result.caption == "source caption"
+
+
+@pytest.mark.parametrize(
+    ("description", "caption"),
+    [
+        (
+            "authored link https://t.co/authored trailing media https://t.co/media",
+            "authored link https://t.co/authored trailing media",
+        ),
+        ("uppercase HTTPS://T.CO/media", "uppercase"),
+        ("non-trailing https://t.co/link text", "non-trailing https://t.co/link text"),
+        ("other link https://x.com/user/status/123", "other link https://x.com/user/status/123"),
+        ("https://t.co/media", ""),
+    ],
+)
+def test_inspect_normalizes_only_trailing_media_shortlinks(
+    tmp_path: Path, description: str, caption: str
+) -> None:
+    adapter, _ = adapter_with(tmp_path, FakeYoutubeDL(video_info(description=description)))
+
+    metadata = adapter.inspect("https://x.com/user/status/123")
+
+    assert metadata.caption == caption
+
+
+def test_inspect_normalizes_root_description_fallback(tmp_path: Path) -> None:
+    adapter, _ = adapter_with(
+        tmp_path,
+        FakeYoutubeDL(
+            {
+                "description": "root caption https://t.co/media",
+                "entries": [video_info(description=None)],
+            }
+        ),
+    )
+
+    metadata = adapter.inspect("https://x.com/user/status/123")
+
+    assert metadata.caption == "root caption"
 
 
 def test_inspect_rejects_multiple_videos_before_download(tmp_path: Path) -> None:

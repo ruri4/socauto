@@ -41,6 +41,7 @@ _X_HOSTS = {
     "x.com",
 }
 _STATUS_PATH = re.compile(r"^/[^/]+/status/(?P<id>[0-9]+)(?:/.*)?$")
+_TRAILING_MEDIA_SHORTLINK = re.compile(r"(?:^|\s+)https?://t\.co/\S+\s*$", re.IGNORECASE)
 
 
 class UnsupportedXUrlError(ValueError):
@@ -153,7 +154,9 @@ class XSourceAdapter:
         return XPostMetadata(
             canonical_url=canonical_url,
             media_id=_text(video.get("id")) or canonical_url.rsplit("/", maxsplit=1)[-1],
-            caption=_text(video.get("description")) or _text(root.get("description")) or "",
+            caption=_normalize_caption(
+                _text(video.get("description")) or _text(root.get("description")) or ""
+            ),
             duration_seconds=_nonnegative_float(video.get("duration")),
             width=_positive_int(video.get("width")),
             height=_positive_int(video.get("height")),
@@ -313,6 +316,10 @@ def _codec(value: object) -> str | None:
 
 def _text(value: object) -> str | None:
     return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def _normalize_caption(caption: str) -> str:
+    return _TRAILING_MEDIA_SHORTLINK.sub("", caption)
 
 
 def _positive_int(value: object) -> int | None:
